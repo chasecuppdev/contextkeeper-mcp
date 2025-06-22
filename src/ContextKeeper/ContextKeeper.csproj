@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    
+    <!-- Package metadata -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>contextkeeper</ToolCommandName>
+    <PackageId>ContextKeeper</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Chase Cupp</Authors>
+    <Description>AI-powered development context management with LSM-tree inspired history tracking</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/chasecupp43/contextkeeper-mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/chasecupp43/contextkeeper-mcp</RepositoryUrl>
+    <PackageTags>mcp;ai;context;history;development;claude</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.0" />
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="../../profiles/**/*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+      <PackagePath>profiles</PackagePath>
+    </Content>
+  </ItemGroup>
+
+</Project>

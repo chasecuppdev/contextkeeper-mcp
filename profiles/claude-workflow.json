@@ -1,0 +1,28 @@
+{
+  "name": "claude-workflow",
+  "description": "LSM-tree inspired development history for CLAUDE.md projects",
+  "detection": {
+    "files": ["CLAUDE.md"],
+    "paths": ["FeatureData/DataHistory"]
+  },
+  "paths": {
+    "history": "FeatureData/DataHistory",
+    "snapshots": "FeatureData/DataHistory/CLAUDE",
+    "compacted": "FeatureData/DataHistory/Compacted"
+  },
+  "snapshot": {
+    "prefix": "CLAUDE_",
+    "dateFormat": "yyyy-MM-dd",
+    "filenamePattern": "{prefix}{date}_{milestone}.md",
+    "validation": "^[a-z0-9-]+$",
+    "maxLength": 50
+  },
+  "compaction": {
+    "threshold": 10,
+    "strategy": "lsm-quarterly",
+    "archivePath": "Archived_{quarter}"
+  },
+  "header": {
+    "template": "# {document} Historical Snapshot\n**Date**: {date}\n**Milestone**: {milestone}\n**Previous State**: {previous}\n**Compaction Status**: {status}\n\n## Changes in This Version\n- [To be filled by developer]\n\n## Context for Future Reference\n- [To be filled by developer]\n\n---\n{content}"
+  }
+}

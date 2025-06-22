@@ -1,0 +1,28 @@
+{
+  "name": "readme-workflow",
+  "description": "History tracking for README-based projects",
+  "detection": {
+    "files": ["README.md"],
+    "paths": []
+  },
+  "paths": {
+    "history": ".history",
+    "snapshots": ".history/snapshots",
+    "compacted": ".history/compacted"
+  },
+  "snapshot": {
+    "prefix": "README_",
+    "dateFormat": "yyyy-MM-dd",
+    "filenamePattern": "{prefix}{date}_{milestone}.md",
+    "validation": "^[a-z0-9-]+$",
+    "maxLength": 50
+  },
+  "compaction": {
+    "threshold": 20,
+    "strategy": "monthly",
+    "archivePath": "Archive_{year}-{month}"
+  },
+  "header": {
+    "template": "# README Historical Snapshot\n**Date**: {date}\n**Milestone**: {milestone}\n**Previous Version**: {previous}\n\n## Summary of Changes\n- [To be filled]\n\n---\n{content}"
+  }
+}
