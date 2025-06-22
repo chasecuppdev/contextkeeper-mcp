@@ -12,17 +12,17 @@ public class CompactionEngine
         _logger = logger;
     }
     
-    public async Task<CompactionStatus> CheckCompactionNeededAsync(WorkflowProfile profile)
+    public Task<CompactionStatus> CheckCompactionNeededAsync(WorkflowProfile profile)
     {
         var snapshotsDir = profile.Paths.Snapshots;
         if (!Directory.Exists(snapshotsDir))
         {
-            return new CompactionStatus
+            return Task.FromResult(new CompactionStatus
             {
                 SnapshotCount = 0,
                 CompactionNeeded = false,
                 RecommendedAction = "No snapshots found"
-            };
+            });
         }
         
         var pattern = profile.Snapshot.Prefix + "*.md";
@@ -34,7 +34,7 @@ public class CompactionEngine
         var threshold = profile.Compaction.Threshold;
         var compactionNeeded = snapshots.Count >= threshold;
         
-        return new CompactionStatus
+        return Task.FromResult(new CompactionStatus
         {
             SnapshotCount = snapshots.Count,
             CompactionNeeded = compactionNeeded,
@@ -44,7 +44,7 @@ public class CompactionEngine
                 ? $"Compaction recommended - {snapshots.Count}/{threshold} snapshots exist"
                 : $"No compaction needed - {snapshots.Count}/{threshold} snapshots",
             Threshold = threshold
-        };
+        });
     }
     
     public async Task<CompactionResult> PerformCompactionAsync(WorkflowProfile profile)

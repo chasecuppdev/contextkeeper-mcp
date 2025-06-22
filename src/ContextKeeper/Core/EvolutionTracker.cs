@@ -56,7 +56,7 @@ public class EvolutionTracker
         return result;
     }
     
-    public async Task<TimelineResult> GetTimelineAsync(WorkflowProfile profile)
+    public Task<TimelineResult> GetTimelineAsync(WorkflowProfile profile)
     {
         var timeline = new TimelineResult
         {
@@ -66,7 +66,7 @@ public class EvolutionTracker
         var snapshotsDir = profile.Paths.Snapshots;
         if (!Directory.Exists(snapshotsDir))
         {
-            return timeline;
+            return Task.FromResult(timeline);
         }
         
         var files = Directory.GetFiles(snapshotsDir, "*.md").OrderBy(f => f);
@@ -86,7 +86,7 @@ public class EvolutionTracker
             });
         }
         
-        return timeline;
+        return Task.FromResult(timeline);
     }
     
     private DateTime ExtractDateFromFilename(string filename, WorkflowProfile profile)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ContextKeeper.Core;
+using ContextKeeper.Json;
 
 namespace ContextKeeper.Protocol;
 
@@ -111,7 +112,7 @@ public class SimpleJsonRpcServer
         };
     }
     
-    private async Task<JsonObject> HandleInitialize(JsonNode? parameters)
+    private Task<JsonObject> HandleInitialize(JsonNode? parameters)
     {
         var capabilities = new JsonObject
         {
@@ -124,109 +125,113 @@ public class SimpleJsonRpcServer
             }
         };
         
-        return capabilities;
+        return Task.FromResult(capabilities);
     }
     
     private JsonObject GetToolsList()
     {
-        var tools = new JsonArray
+        var toolDefinitions = new object[]
         {
-            new JsonObject
+            new
             {
-                ["name"] = "create_snapshot",
-                ["description"] = "Create a timestamped backup of your main document",
-                ["inputSchema"] = new JsonObject
+                name = "create_snapshot",
+                description = "Create a timestamped backup of your main document",
+                inputSchema = new
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
+                    type = "object",
+                    properties = new
                     {
-                        ["milestone"] = new JsonObject
+                        milestone = new
                         {
-                            ["type"] = "string",
-                            ["description"] = "Milestone description in kebab-case (e.g., 'feature-implementation')",
-                            ["pattern"] = "^[a-z0-9-]+$",
-                            ["maxLength"] = 50
+                            type = "string",
+                            description = "Milestone description in kebab-case (e.g., 'feature-implementation')",
+                            pattern = "^[a-z0-9-]+$",
+                            maxLength = 50
                         }
                     },
-                    ["required"] = new JsonArray { "milestone" }
+                    required = new[] { "milestone" }
                 }
             },
-            new JsonObject
+            new
             {
-                ["name"] = "check_compaction",
-                ["description"] = "Check if history compaction is needed based on snapshot count",
-                ["inputSchema"] = new JsonObject
+                name = "check_compaction",
+                description = "Check if history compaction is needed based on snapshot count",
+                inputSchema = new
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject { }
+                    type = "object",
+                    properties = new { }
                 }
             },
-            new JsonObject
+            new
             {
-                ["name"] = "search_history",
-                ["description"] = "Search through all historical snapshots for specific content",
-                ["inputSchema"] = new JsonObject
+                name = "search_history",
+                description = "Search through all historical snapshots for specific content",
+                inputSchema = new
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
+                    type = "object",
+                    properties = new
                     {
-                        ["searchTerm"] = new JsonObject
+                        searchTerm = new
                         {
-                            ["type"] = "string",
-                            ["description"] = "Term to search for in history"
+                            type = "string",
+                            description = "Term to search for in history"
                         },
-                        ["maxResults"] = new JsonObject
+                        maxResults = new
                         {
-                            ["type"] = "integer",
-                            ["description"] = "Maximum number of results to return",
-                            ["default"] = 5
+                            type = "integer",
+                            description = "Maximum number of results to return",
+                            @default = 5
                         }
                     },
-                    ["required"] = new JsonArray { "searchTerm" }
+                    required = new[] { "searchTerm" }
                 }
             },
-            new JsonObject
+            new
             {
-                ["name"] = "get_evolution",
-                ["description"] = "Track how a specific component evolved over time",
-                ["inputSchema"] = new JsonObject
+                name = "get_evolution",
+                description = "Track how a specific component evolved over time",
+                inputSchema = new
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
+                    type = "object",
+                    properties = new
                     {
-                        ["componentName"] = new JsonObject
+                        componentName = new
                         {
-                            ["type"] = "string",
-                            ["description"] = "Name of the component to track"
+                            type = "string",
+                            description = "Name of the component to track"
                         }
                     },
-                    ["required"] = new JsonArray { "componentName" }
+                    required = new[] { "componentName" }
                 }
             },
-            new JsonObject
+            new
             {
-                ["name"] = "compare_snapshots",
-                ["description"] = "Compare two snapshots to see what changed",
-                ["inputSchema"] = new JsonObject
+                name = "compare_snapshots",
+                description = "Compare two snapshots to see what changed",
+                inputSchema = new
                 {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
+                    type = "object",
+                    properties = new
                     {
-                        ["snapshot1"] = new JsonObject
+                        snapshot1 = new
                         {
-                            ["type"] = "string",
-                            ["description"] = "First snapshot filename"
+                            type = "string",
+                            description = "First snapshot filename"
                         },
-                        ["snapshot2"] = new JsonObject
+                        snapshot2 = new
                         {
-                            ["type"] = "string",
-                            ["description"] = "Second snapshot filename"
+                            type = "string",
+                            description = "Second snapshot filename"
                         }
                     },
-                    ["required"] = new JsonArray { "snapshot1", "snapshot2" }
+                    required = new[] { "snapshot1", "snapshot2" }
                 }
             }
         };
+        
+#pragma warning disable IL2026, IL3050 // Suppress AOT warnings for anonymous types
+        var tools = JsonSerializer.SerializeToNode(toolDefinitions, ContextKeeperJsonContext.Default.Options) as JsonArray ?? new JsonArray();
+#pragma warning restore IL2026, IL3050
         
         return new JsonObject
         {

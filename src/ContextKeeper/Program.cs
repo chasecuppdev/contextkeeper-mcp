@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using ContextKeeper.Core;
 using ContextKeeper.Config;
 using ContextKeeper.Protocol;
+using ContextKeeper.Json;
 
 namespace ContextKeeper;
 
@@ -49,7 +50,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.InitializeProject(profile);
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         }, profileOption);
         
         return command;
@@ -66,7 +67,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.CreateSnapshot(milestone);
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         }, milestoneArg);
         
         return command;
@@ -81,7 +82,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.CheckCompactionNeeded();
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         });
         
         return command;
@@ -101,7 +102,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.SearchHistory(term, max);
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         }, termArg, maxOption);
         
         return command;
@@ -118,7 +119,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.GetArchitecturalEvolution(component);
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         }, componentArg);
         
         return command;
@@ -138,7 +139,7 @@ class Program
             var host = CreateHost();
             var service = host.Services.GetRequiredService<ContextKeeperService>();
             var result = await service.CompareSnapshots(snapshot1, snapshot2);
-            Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(result.ToJsonString());
         }, snapshot1Arg, snapshot2Arg);
         
         return command;

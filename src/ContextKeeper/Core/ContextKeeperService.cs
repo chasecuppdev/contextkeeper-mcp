@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ContextKeeper.Config;
 using ContextKeeper.Config.Models;
+using ContextKeeper.Json;
 
 namespace ContextKeeper.Core;
 
@@ -95,6 +96,7 @@ public class ContextKeeperService
             var matches = new JsonArray();
             foreach (var result in results.Matches)
             {
+#pragma warning disable IL2026, IL3050 // Suppress AOT warnings for JsonObject in JsonArray
                 matches.Add(new JsonObject
                 {
                     ["fileName"] = result.FileName,
@@ -102,6 +104,7 @@ public class ContextKeeperService
                     ["context"] = result.Context,
                     ["matchedLine"] = result.MatchedLine
                 });
+#pragma warning restore IL2026, IL3050
             }
             
             return new JsonObject
@@ -132,6 +135,7 @@ public class ContextKeeperService
             var steps = new JsonArray();
             foreach (var step in evolution.Steps)
             {
+#pragma warning disable IL2026, IL3050 // Suppress AOT warnings for JsonObject in JsonArray
                 steps.Add(new JsonObject
                 {
                     ["date"] = step.Date.ToString("yyyy-MM-dd"),
@@ -139,6 +143,7 @@ public class ContextKeeperService
                     ["status"] = step.Status,
                     ["fileName"] = step.FileName
                 });
+#pragma warning restore IL2026, IL3050
             }
             
             return new JsonObject
@@ -240,7 +245,7 @@ public class ContextKeeperService
                     Profiles = new Dictionary<string, WorkflowProfile> { [profile.Name] = profile }
                 };
                 
-                var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                var json = JsonSerializer.Serialize(config, ContextKeeperJsonContext.Default.ContextKeeperConfig);
                 await File.WriteAllTextAsync(configPath, json);
             }
             

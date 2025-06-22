@@ -22,24 +22,24 @@ public static class FileSystemHelpers
         return directory.GetFiles("*", SearchOption.AllDirectories).Sum(file => file.Length);
     }
     
-    public static async Task<bool> SafeDeleteFileAsync(string filePath)
+    public static Task<bool> SafeDeleteFileAsync(string filePath)
     {
         try
         {
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
-                return true;
+                return Task.FromResult(true);
             }
-            return false;
+            return Task.FromResult(false);
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
     }
     
-    public static async Task<bool> SafeMoveFileAsync(string source, string destination)
+    public static Task<bool> SafeMoveFileAsync(string source, string destination)
     {
         try
         {
@@ -50,11 +50,11 @@ public static class FileSystemHelpers
             }
             
             File.Move(source, destination, true);
-            return true;
+            return Task.FromResult(true);
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
     }
     

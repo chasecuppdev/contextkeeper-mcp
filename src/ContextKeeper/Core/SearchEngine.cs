@@ -58,14 +58,14 @@ public class SearchEngine
         return results;
     }
     
-    public async Task<List<string>> SearchFilesAsync(string pattern, WorkflowProfile profile)
+    public Task<List<string>> SearchFilesAsync(string pattern, WorkflowProfile profile)
     {
         var matches = new List<string>();
         var snapshotsDir = profile.Paths.Snapshots;
         
         if (!Directory.Exists(snapshotsDir))
         {
-            return matches;
+            return Task.FromResult(matches);
         }
         
         var files = Directory.GetFiles(snapshotsDir, pattern);
@@ -74,7 +74,7 @@ public class SearchEngine
             matches.Add(Path.GetFileName(file));
         }
         
-        return matches;
+        return Task.FromResult(matches);
     }
     
     private string GetContextLines(string[] lines, int index, int contextSize)

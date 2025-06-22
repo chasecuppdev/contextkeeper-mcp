@@ -45,7 +45,7 @@ public class ProfileDetector
         return null;
     }
     
-    public async Task<bool> MatchesProfileAsync(WorkflowProfile profile)
+    public Task<bool> MatchesProfileAsync(WorkflowProfile profile)
     {
         var currentDir = Directory.GetCurrentDirectory();
         
@@ -54,7 +54,7 @@ public class ProfileDetector
         {
             if (!File.Exists(Path.Combine(currentDir, file)))
             {
-                return false;
+                return Task.FromResult(false);
             }
         }
         
@@ -63,11 +63,11 @@ public class ProfileDetector
         {
             if (!Directory.Exists(Path.Combine(currentDir, path)))
             {
-                return false;
+                return Task.FromResult(false);
             }
         }
         
-        return true;
+        return Task.FromResult(true);
     }
     
     private WorkflowProfile GetClaudeProfile()

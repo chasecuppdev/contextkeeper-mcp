@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using ContextKeeper.Config.Models;
+using ContextKeeper.Json;
 
 namespace ContextKeeper.Config;
 
@@ -101,7 +102,7 @@ public class ConfigurationService : IConfigurationService
             try
             {
                 var json = await File.ReadAllTextAsync(_configPath);
-                _cachedConfig = JsonSerializer.Deserialize<ContextKeeperConfig>(json);
+                _cachedConfig = JsonSerializer.Deserialize(json, ContextKeeperJsonContext.Default.ContextKeeperConfig);
                 if (_cachedConfig != null)
                 {
                     return _cachedConfig;
@@ -141,7 +142,7 @@ public class ConfigurationService : IConfigurationService
                 try
                 {
                     var json = await File.ReadAllTextAsync(file);
-                    var profile = JsonSerializer.Deserialize<WorkflowProfile>(json);
+                    var profile = JsonSerializer.Deserialize(json, ContextKeeperJsonContext.Default.WorkflowProfile);
                     if (profile != null && !string.IsNullOrEmpty(profile.Name))
                     {
                         profiles[profile.Name] = profile;
