@@ -8,6 +8,9 @@ using ContextKeeper.Core;
 using ContextKeeper.Config;
 using ContextKeeper.Protocol;
 using ContextKeeper.Json;
+using ContextKeeper.CodeAnalysis;
+using ModelContextProtocol.Server;
+using Microsoft.Build.Locator;
 
 namespace ContextKeeper;
 
@@ -15,6 +18,16 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
+        // Register MSBuild first (required for Roslyn)
+        try
+        {
+            MSBuildLocator.RegisterDefaults();
+        }
+        catch (InvalidOperationException)
+        {
+            // Already registered
+        }
+        
         // If no args, run as MCP server
         if (args.Length == 0)
         {
@@ -159,13 +172,30 @@ class Program
     
     static async Task<int> RunMcpServer()
     {
-        var host = CreateHost();
-        var service = host.Services.GetRequiredService<ContextKeeperService>();
-        var server = new SimpleJsonRpcServer(service);
+        var builder = Host.CreateApplicationBuilder();
         
-        Console.Error.WriteLine("ContextKeeper MCP Server started (stdio mode)");
+        // Configure logging
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConsole(options =>
+        {
+            options.LogToStandardErrorThreshold = LogLevel.Trace;
+        });
         
-        await server.RunAsync();
+        // Register services
+        RegisterServices(builder.Services);
+        
+        // Configure MCP Server
+        builder.Services
+            .AddMcpServer()
+            .WithStdioServerTransport()
+            .WithTools<CodeSearchTools>()
+            .WithTools<ContextKeeperMcpTools>();
+        
+        var host = builder.Build();
+        
+        Console.Error.WriteLine("ContextKeeper MCP Server started (stdio mode with C# code search)");
+        
+        await host.RunAsync();
         return 0;
     }
     
@@ -184,14 +214,28 @@ class Program
                 });
                 
                 // Register services
-                services.AddSingleton<ProfileDetector>();
-                services.AddSingleton<IConfigurationService, ConfigurationService>();
-                services.AddSingleton<SnapshotManager>();
-                services.AddSingleton<SearchEngine>();
-                services.AddSingleton<EvolutionTracker>();
-                services.AddSingleton<CompactionEngine>();
-                services.AddSingleton<ContextKeeperService>();
+                RegisterServices(services);
             })
             .Build();
+    }
+    
+    static void RegisterServices(IServiceCollection services)
+    {
+        // Core ContextKeeper services
+        services.AddSingleton<ProfileDetector>();
+        services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<SnapshotManager>();
+        services.AddSingleton<SearchEngine>();
+        services.AddSingleton<EvolutionTracker>();
+        services.AddSingleton<CompactionEngine>();
+        services.AddSingleton<ContextKeeperService>();
+        
+        // Code analysis services
+        services.AddSingleton<WorkspaceManager>();
+        services.AddSingleton<SymbolSearchService>();
+        services.AddSingleton<CodeSearchTools>();
+        
+        // MCP Tools
+        services.AddSingleton<ContextKeeperMcpTools>();
     }
 }

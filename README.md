@@ -14,6 +14,7 @@ ContextKeeper is a tool that helps AI assistants understand your project's evolu
 - 🗜️ **Automatic Compaction** - LSM-tree inspired history management
 - 🤖 **AI-Native** - Built for Model Context Protocol (MCP) integration
 - 🎯 **Multi-Profile** - Adapts to different project structures
+- 🔎 **C# Code Search** - Powerful Roslyn-based code analysis for C# projects
 
 ## Quick Start
 
@@ -65,6 +66,11 @@ claude mcp add contextkeeper -- ~/.contextkeeper/contextkeeper
 # "Create a snapshot for the testing implementation"
 # "Show me the evolution of the ArchitecturePatternDetector"
 # "Search history for when we added fuzzy matching"
+
+# C# Code Search examples:
+# "Find all classes that implement IDisposable in solution.sln"
+# "Show me all references to the UserService class"
+# "What classes inherit from BaseController?"
 ```
 
 ## How It Works
@@ -81,13 +87,14 @@ ContextKeeper uses an LSM-tree inspired approach to manage your development hist
 ### CLAUDE.md Projects (Default)
 Perfect for AI-assisted development with comprehensive project documentation:
 - Detects `CLAUDE.md` files
-- Uses `FeatureData/DataHistory` structure
+- Uses `.contextkeeper/claude-workflow/` structure
 - Implements proven snapshot patterns
+- 10 snapshot compaction threshold
 
 ### README-based Projects
 For traditional projects with README documentation:
 - Detects `README.md` files
-- Creates hidden `.history` directory
+- Uses `.contextkeeper/readme-workflow/` structure
 - Higher compaction threshold (20 snapshots)
 
 ### Custom Workflows
@@ -116,15 +123,30 @@ ContextKeeper can be configured through:
       "name": "my-custom-workflow",
       "detection": {
         "files": ["ARCHITECTURE.md"],
-        "paths": ["docs/history"]
+        "paths": ["docs"]
       },
       "paths": {
-        "history": "docs/history",
-        "snapshots": "docs/history/snapshots"
+        "history": ".contextkeeper/my-custom-workflow",
+        "snapshots": ".contextkeeper/my-custom-workflow/snapshots",
+        "compacted": ".contextkeeper/my-custom-workflow/compacted"
       }
     }
   }
 }
+```
+
+### Storage Structure (v1.0+)
+
+All context data is stored in the `.contextkeeper/` directory:
+
+```
+.contextkeeper/
+├── claude-workflow/      # For CLAUDE.md projects
+│   ├── snapshots/       # Individual snapshots
+│   └── compacted/       # Quarterly archives
+└── readme-workflow/      # For README.md projects
+    ├── snapshots/
+    └── compacted/
 ```
 
 ## Advanced Features
@@ -189,6 +211,32 @@ ContextKeeper is built with:
 - **5.6MB binary** - Fast startup, minimal footprint
 - **Model Context Protocol** - Native MCP server implementation
 - **Extensible design** - Easy to add new features and workflows
+- **Zero warnings** - Clean build with full AOT compatibility
+
+## Recent Updates (v1.1)
+
+### C# Code Search Integration (NEW!)
+- Added powerful Roslyn-based code analysis tools
+- Search for symbols, find references, and navigate inheritance
+- Full integration with Model Context Protocol
+- See [C# Code Search Documentation](docs/CSharpCodeSearch.md) for details
+
+### Storage Location Change (v1.0)
+- Migrated from `FeatureData/DataHistory/` to standardized `.contextkeeper/` directory
+- All workflows now use consistent hidden directory structure
+- Improved project organization and .gitignore compatibility
+
+### Build Improvements
+- Fixed all build warnings for Native AOT compatibility
+- Implemented source-generated JSON serialization
+- Achieved zero-warning build status
+- Full .NET 9 Native AOT support
+
+### Enhanced Testing
+- Added comprehensive test suite with 40+ tests
+- Created realistic test data (TaskManager API example)
+- Implemented isolated test environments
+- Tests serve as usage examples
 
 ## Contributing
 

@@ -27,4 +27,9 @@
     <ProjectReference Include="../../src/ContextKeeper/ContextKeeper.csproj" />
   </ItemGroup>
 
+  <!-- Copy test data to output directory -->
+  <ItemGroup>
+    <None Include="TestData/**/*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

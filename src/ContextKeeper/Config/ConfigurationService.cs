@@ -132,6 +132,9 @@ public class ConfigurationService : IConfigurationService
         // Add default CLAUDE.md profile
         profiles["claude-workflow"] = GetDefaultClaudeProfile();
         
+        // Add README.md profile
+        profiles["readme-workflow"] = GetDefaultReadmeProfile();
+        
         // Load from profiles directory if available
         var profilesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "profiles");
         if (Directory.Exists(profilesDir))
@@ -167,13 +170,13 @@ public class ConfigurationService : IConfigurationService
             Detection = new DetectionConfig
             {
                 Files = new List<string> { "CLAUDE.md" },
-                Paths = new List<string> { "FeatureData/DataHistory" }
+                Paths = new List<string> { ".contextkeeper" }
             },
             Paths = new PathConfig
             {
-                History = "FeatureData/DataHistory",
-                Snapshots = "FeatureData/DataHistory/CLAUDE",
-                Compacted = "FeatureData/DataHistory/Compacted"
+                History = ".contextkeeper/claude-workflow",
+                Snapshots = ".contextkeeper/claude-workflow/snapshots",
+                Compacted = ".contextkeeper/claude-workflow/compacted"
             },
             Snapshot = new SnapshotConfig
             {
@@ -201,6 +204,53 @@ public class ConfigurationService : IConfigurationService
 - [To be filled by developer]
 
 ## Context for Future Reference
+- [To be filled by developer]
+
+---
+{content}"
+            }
+        };
+    }
+    
+    private WorkflowProfile GetDefaultReadmeProfile()
+    {
+        return new WorkflowProfile
+        {
+            Name = "readme-workflow",
+            Description = "Standard documentation workflow for README.md based projects",
+            Detection = new DetectionConfig
+            {
+                Files = new List<string> { "README.md" },
+                Paths = new List<string> { }
+            },
+            Paths = new PathConfig
+            {
+                History = ".contextkeeper/readme-workflow",
+                Snapshots = ".contextkeeper/readme-workflow/snapshots",
+                Compacted = ".contextkeeper/readme-workflow/compacted"
+            },
+            Snapshot = new SnapshotConfig
+            {
+                Prefix = "README_",
+                DateFormat = "yyyy-MM-dd",
+                FilenamePattern = "{prefix}{date}_{milestone}.md",
+                Validation = @"^[a-z0-9-]+$",
+                MaxLength = 50
+            },
+            Compaction = new CompactionConfig
+            {
+                Threshold = 20,  // Higher threshold for README projects
+                Strategy = "lsm-yearly",
+                ArchivePath = "Archived_{year}"
+            },
+            Header = new HeaderConfig
+            {
+                Template = @"# {document} Documentation Snapshot
+**Date**: {date}
+**Milestone**: {milestone}
+**Previous State**: {previous}
+
+## Summary of Changes
 - [To be filled by developer]
 
 ---
