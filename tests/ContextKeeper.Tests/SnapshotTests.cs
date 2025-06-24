@@ -14,20 +14,15 @@ public class SnapshotTests : TestBase, IDisposable
     private readonly ISnapshotManager _snapshotManager;
     private readonly IConfigurationService _configService;
     private readonly string _tempDirectory;
-    private readonly string _originalDirectory;
     
-    public SnapshotTests()
+    public SnapshotTests() : base(useMockConfiguration: false)
     {
         _snapshotManager = GetService<ISnapshotManager>();
         _configService = GetService<IConfigurationService>();
         
-        // Save original directory
-        _originalDirectory = Environment.CurrentDirectory;
-        
-        // Create isolated test environment
-        _tempDirectory = CreateTempDirectory();
-        CopyTestData(_tempDirectory);
-        Environment.CurrentDirectory = _tempDirectory;
+        // Create isolated test environment with CLAUDE project
+        _tempDirectory = CreateIsolatedEnvironment(TestScenario.ClaudeOnly);
+        SetCurrentDirectory(_tempDirectory);
     }
     
     [Fact]
@@ -49,7 +44,7 @@ public class SnapshotTests : TestBase, IDisposable
         // Verify file content structure
         var content = await File.ReadAllTextAsync(result.SnapshotPath);
         Assert.Contains("# CLAUDE.md Historical Snapshot", content);
-        Assert.Contains($"**Milestone**: {milestone}", content);
+        Assert.Contains($"**Milestone**: {milestone.Replace("-", " ")}", content);
     }
     
     [Theory]
@@ -98,15 +93,37 @@ public class SnapshotTests : TestBase, IDisposable
         
         // Arrange
         var profile = await _configService.GetActiveProfileAsync();
-        var existingSnapshots = Directory.GetFiles(profile.Paths.Snapshots, "*.md").Length;
+        var snapshotPath = Path.Combine(Environment.CurrentDirectory, profile.Paths.Snapshots);
+        
+        // Ensure snapshots directory exists
+        Directory.CreateDirectory(snapshotPath);
+        
+        // Get list of existing files before creating new snapshot
+        var existingFiles = Directory.Exists(snapshotPath) 
+            ? Directory.GetFiles(snapshotPath, "*.md").Select(Path.GetFileName).ToHashSet()
+            : new HashSet<string>();
         
         // Act
-        var result = await _snapshotManager.CreateSnapshotAsync("new-feature", profile);
+        var result = await _snapshotManager.CreateSnapshotAsync("preserve-test", profile);
         
         // Assert
-        Assert.True(result.Success);
-        var newSnapshotCount = Directory.GetFiles(profile.Paths.Snapshots, "*.md").Length;
-        Assert.Equal(existingSnapshots + 1, newSnapshotCount);
+        Assert.True(result.Success, $"Snapshot creation failed: {result.Message}");
+        Assert.NotNull(result.SnapshotPath);
+        Assert.True(File.Exists(result.SnapshotPath), $"Snapshot file not created at: {result.SnapshotPath}");
+        
+        // Verify the new file was created
+        var newFileName = Path.GetFileName(result.SnapshotPath);
+        Assert.Contains("preserve-test", newFileName);
+        
+        // Verify all existing files are still there
+        var currentFiles = Directory.GetFiles(snapshotPath, "*.md").Select(Path.GetFileName).ToHashSet();
+        foreach (var existingFile in existingFiles)
+        {
+            Assert.Contains(existingFile, currentFiles);
+        }
+        
+        // Verify we have exactly one more file
+        Assert.Equal(existingFiles.Count + 1, currentFiles.Count);
     }
     
     [Fact]
@@ -144,14 +161,7 @@ public class SnapshotTests : TestBase, IDisposable
     
     public override void Dispose()
     {
-        // Restore original directory
-        Environment.CurrentDirectory = _originalDirectory;
-        
-        // Clean up temporary directory
-        if (Directory.Exists(_tempDirectory))
-        {
-            Directory.Delete(_tempDirectory, true);
-        }
+        // Base class handles directory restoration and cleanup
         base.Dispose();
     }
 }

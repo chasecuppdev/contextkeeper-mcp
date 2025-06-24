@@ -92,9 +92,48 @@ public class SymbolSearchService
     {
         try
         {
-            var symbols = await SymbolFinder.FindSourceDeclarationsWithPatternAsync(
-                solution, pattern, filter, cancellationToken);
-            return symbols;
+            // Support simplified pattern formats:
+            // - "prefix:Foo" - symbols starting with Foo
+            // - "suffix:Bar" - symbols ending with Bar
+            // - "contains:Baz" - symbols containing Baz
+            // - "exact text" - exact match (default)
+            
+            Func<string, bool> predicate;
+            
+            if (pattern.StartsWith("prefix:", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefix = pattern.Substring(7);
+                predicate = name => name.StartsWith(prefix, StringComparison.Ordinal);
+                _logger.LogDebug("Using prefix pattern: '{Prefix}'", prefix);
+            }
+            else if (pattern.StartsWith("suffix:", StringComparison.OrdinalIgnoreCase))
+            {
+                var suffix = pattern.Substring(7);
+                predicate = name => name.EndsWith(suffix, StringComparison.Ordinal);
+                _logger.LogDebug("Using suffix pattern: '{Suffix}'", suffix);
+            }
+            else if (pattern.StartsWith("contains:", StringComparison.OrdinalIgnoreCase))
+            {
+                var substring = pattern.Substring(9);
+                predicate = name => name.Contains(substring, StringComparison.Ordinal);
+                _logger.LogDebug("Using contains pattern: '{Substring}'", substring);
+            }
+            else
+            {
+                // Exact match - use the more efficient FindSourceDeclarationsWithPatternAsync
+                _logger.LogDebug("Using exact match for: '{Pattern}'", pattern);
+                var symbols = await SymbolFinder.FindSourceDeclarationsWithPatternAsync(
+                    solution, pattern, filter, cancellationToken);
+                return symbols;
+            }
+            
+            // Use predicate-based search for pattern matching
+            var results = await SymbolFinder.FindSourceDeclarationsAsync(
+                solution, predicate, filter, cancellationToken);
+            
+            _logger.LogDebug("Pattern search found {Count} symbols for pattern '{Pattern}'", 
+                results.Count(), pattern);
+            return results;
         }
         catch (Exception ex)
         {
@@ -110,6 +149,14 @@ public class SymbolSearchService
     {
         try
         {
+            // If it's an interface, use FindImplementationsAsync instead
+            if (typeSymbol.TypeKind == TypeKind.Interface)
+            {
+                var implementations = await SymbolFinder.FindImplementationsAsync(
+                    typeSymbol, solution, transitive: false, cancellationToken: cancellationToken);
+                return implementations;
+            }
+            
             // FindDerivedClassesAsync requires an IImmutableSet<Project>
             var projects = solution.Projects.ToImmutableHashSet();
             var derivedClasses = await SymbolFinder.FindDerivedClassesAsync(

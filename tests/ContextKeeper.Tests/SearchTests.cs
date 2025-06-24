@@ -13,19 +13,15 @@ public class SearchTests : TestBase, IDisposable
 {
     private readonly ISearchEngine _searchEngine;
     private readonly IConfigurationService _configService;
-    private readonly string _originalDirectory;
     
     public SearchTests()
     {
         _searchEngine = GetService<ISearchEngine>();
         _configService = GetService<IConfigurationService>();
         
-        // Save original directory and ensure we're in TestData
-        _originalDirectory = Environment.CurrentDirectory;
-        if (!File.Exists("CLAUDE.md") && Directory.Exists(TestDataPath))
-        {
-            Environment.CurrentDirectory = TestDataPath;
-        }
+        // Create isolated environment and ensure we're in TestData
+        var testDir = CreateIsolatedEnvironment(TestScenario.Mixed);
+        SetCurrentDirectory(testDir);
     }
     
     [Fact]
@@ -170,7 +166,6 @@ public class SearchTests : TestBase, IDisposable
     
     public new void Dispose()
     {
-        Environment.CurrentDirectory = _originalDirectory;
         base.Dispose();
     }
 }

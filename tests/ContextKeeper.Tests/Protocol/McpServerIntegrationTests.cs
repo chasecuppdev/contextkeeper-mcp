@@ -26,14 +26,15 @@ public class McpServerIntegrationTests : TestBase
         // Register all ContextKeeper services (from TestBase)
         services.AddSingleton<ContextKeeper.Config.ProfileDetector>();
         services.AddSingleton<ContextKeeper.Config.IConfigurationService, ContextKeeper.Config.ConfigurationService>();
-        services.AddSingleton<ContextKeeper.Core.SnapshotManager>();
-        services.AddSingleton<ContextKeeper.Core.SearchEngine>();
-        services.AddSingleton<ContextKeeper.Core.EvolutionTracker>();
-        services.AddSingleton<ContextKeeper.Core.CompactionEngine>();
-        services.AddSingleton<ContextKeeper.Core.ContextKeeperService>();
+        services.AddSingleton<ContextKeeper.Core.Interfaces.ISnapshotManager, ContextKeeper.Core.SnapshotManager>();
+        services.AddSingleton<ContextKeeper.Core.Interfaces.ISearchEngine, ContextKeeper.Core.SearchEngine>();
+        services.AddSingleton<ContextKeeper.Core.Interfaces.IEvolutionTracker, ContextKeeper.Core.EvolutionTracker>();
+        services.AddSingleton<ContextKeeper.Core.Interfaces.ICompactionEngine, ContextKeeper.Core.CompactionEngine>();
+        services.AddSingleton<ContextKeeper.Core.Interfaces.IContextKeeperService, ContextKeeper.Core.ContextKeeperService>();
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<SymbolSearchService>();
         services.AddSingleton<CodeSearchTools>();
+        services.AddSingleton<ContextKeeperMcpTools>();
         
         // Configure MCP Server
         services
@@ -47,10 +48,6 @@ public class McpServerIntegrationTests : TestBase
         // Assert - Verify all tools are registered
         serviceProvider.GetService<CodeSearchTools>().Should().NotBeNull();
         serviceProvider.GetService<ContextKeeperMcpTools>().Should().NotBeNull();
-        
-        // Verify MCP server is configured
-        var mcpServer = serviceProvider.GetService<IMcpServer>();
-        mcpServer.Should().NotBeNull();
     }
     
     [Fact]

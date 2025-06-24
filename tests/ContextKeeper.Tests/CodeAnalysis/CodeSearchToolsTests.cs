@@ -226,11 +226,64 @@ public class CodeSearchToolsTests : TestBase, IAsyncLifetime
     #region SearchSymbolsByPattern Tool Tests
     
     [Fact]
-    public async Task SearchSymbolsByPattern_WithWildcard_ShouldMatchPattern()
+    public async Task SearchSymbolsByPattern_ExactMatch_ShouldWork()
+    {
+        // First test exact match to ensure the solution is loading correctly
+        var solutionPath = Path.Combine(_testSolutionPath, "TestSolution.sln");
+        var pattern = "User";  // Exact match
+        var symbolKinds = "Class";
+        
+        var result = await _codeSearchTools.SearchSymbolsByPattern(
+            solutionPath,
+            pattern,
+            symbolKinds);
+        
+        var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
+        jsonResult!["Success"]!.GetValue<bool>().Should().BeTrue();
+        var results = jsonResult["Results"] as JsonArray;
+        results!.Count.Should().BeGreaterThan(0, "Should find at least the User class");
+    }
+    
+    [Fact]
+    public async Task SearchSymbolsByPattern_WithPrefix_ShouldMatchPattern()
     {
         // Arrange
         var solutionPath = Path.Combine(_testSolutionPath, "TestSolution.sln");
-        var pattern = "User*";
+        var pattern = "prefix:User";  // Use the new prefix pattern format
+        var symbolKinds = "Class";
+        
+        // Act
+        var result = await _codeSearchTools.SearchSymbolsByPattern(
+            solutionPath,
+            pattern,
+            symbolKinds);
+        
+        // Assert
+        var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
+        if (!jsonResult!["Success"]!.GetValue<bool>())
+        {
+            _logger.LogError("Search failed. Full response: {Result}", result);
+        }
+        jsonResult!["Success"]!.GetValue<bool>().Should().BeTrue("Search should succeed. Response: " + result);
+        var results = jsonResult["Results"] as JsonArray;
+        results.Should().NotBeNull("Results should not be null");
+        results!.Count.Should().BeGreaterThan(0, "Expected to find User and UserController classes. Count: {0}, Pattern: {1}, Response: {2}", 
+            jsonResult["Count"]?.GetValue<int>() ?? -1, pattern, result);
+        
+        // All results should start with "User"
+        foreach (var node in results)
+        {
+            var symbol = node as JsonObject;
+            symbol!["Name"]!.ToString().Should().StartWith("User");
+        }
+    }
+    
+    [Fact]
+    public async Task SearchSymbolsByPattern_WithSuffix_ShouldMatchPattern()
+    {
+        // Arrange
+        var solutionPath = Path.Combine(_testSolutionPath, "TestSolution.sln");
+        var pattern = "suffix:Controller";
         var symbolKinds = "Class";
         
         // Act
@@ -243,13 +296,14 @@ public class CodeSearchToolsTests : TestBase, IAsyncLifetime
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
         jsonResult!["Success"]!.GetValue<bool>().Should().BeTrue();
         var results = jsonResult["Results"] as JsonArray;
-        results!.Count.Should().BeGreaterThan(0);
+        results.Should().NotBeNull();
+        results!.Count.Should().BeGreaterThan(0, "Expected to find controller classes");
         
-        // All results should start with "Calc"
+        // All results should end with "Controller"
         foreach (var node in results)
         {
             var symbol = node as JsonObject;
-            symbol!["Name"]!.ToString().Should().StartWith("User");
+            symbol!["Name"]!.ToString().Should().EndWith("Controller");
         }
     }
     

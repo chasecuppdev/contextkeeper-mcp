@@ -13,19 +13,16 @@ public class EvolutionTests : TestBase, IDisposable
 {
     private readonly IEvolutionTracker _evolutionTracker;
     private readonly IConfigurationService _configService;
-    private readonly string _originalDirectory;
+    private readonly string _tempDirectory;
     
-    public EvolutionTests()
+    public EvolutionTests() : base(useMockConfiguration: false)
     {
         _evolutionTracker = GetService<IEvolutionTracker>();
         _configService = GetService<IConfigurationService>();
         
-        // Save original directory and ensure we're in TestData
-        _originalDirectory = Environment.CurrentDirectory;
-        if (!File.Exists("CLAUDE.md") && Directory.Exists(TestDataPath))
-        {
-            Environment.CurrentDirectory = TestDataPath;
-        }
+        // Create isolated test environment with CLAUDE project
+        _tempDirectory = CreateIsolatedEnvironment(TestScenario.ClaudeOnly);
+        SetCurrentDirectory(_tempDirectory);
     }
     
     [Fact]
@@ -174,9 +171,9 @@ public class EvolutionTests : TestBase, IDisposable
         Assert.True(cqrsEvolution.Steps.First().Date >= new DateTime(2024, 2, 1));
     }
     
-    public new void Dispose()
+    public override void Dispose()
     {
-        Environment.CurrentDirectory = _originalDirectory;
+        // Base class handles directory restoration and cleanup
         base.Dispose();
     }
 }

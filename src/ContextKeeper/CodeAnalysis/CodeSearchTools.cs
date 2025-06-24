@@ -155,9 +155,12 @@ public class CodeSearchTools
                 refSymbol.Locations.Select(location => new
                 {
                     SymbolName = refSymbol.Definition.ToDisplayString(),
-                    FilePath = location.Location.SourceTree?.FilePath,
-                    Line = location.Location.GetLineSpan().StartLinePosition.Line + 1,
-                    Column = location.Location.GetLineSpan().StartLinePosition.Character + 1,
+                    Location = new
+                    {
+                        FilePath = location.Location.SourceTree?.FilePath,
+                        Line = location.Location.GetLineSpan().StartLinePosition.Line + 1,
+                        Column = location.Location.GetLineSpan().StartLinePosition.Character + 1
+                    },
                     Kind = location.IsImplicit ? "Implicit" : "Explicit",
                     Preview = GetLinePreview(location.Location)
                 })).ToArray();
@@ -210,16 +213,34 @@ public class CodeSearchTools
                 });
             }
 
+            // Handle both "IRepository`1" and "IRepository<T>" formats for generic types
+            var searchName = typeName;
+            if (typeName.Contains("`"))
+            {
+                // Convert from metadata format (IRepository`1) to source format
+                var parts = typeName.Split('`');
+                if (parts.Length == 2 && int.TryParse(parts[1], out var arity))
+                {
+                    searchName = parts[0]; // Search for just the base name
+                }
+            }
+            
             var typeSymbols = await _symbolService.FindSymbolsAsync(
-                solution, typeName, true, SymbolFilter.All, cancellationToken);
+                solution, searchName, true, SymbolFilter.All, cancellationToken);
 
-            var typeSymbol = typeSymbols.OfType<INamedTypeSymbol>().FirstOrDefault();
+            // For generic types, match by metadata name
+            var typeSymbol = typeName.Contains("`") 
+                ? typeSymbols.OfType<INamedTypeSymbol>().FirstOrDefault(s => s.MetadataName == typeName)
+                : typeSymbols.OfType<INamedTypeSymbol>().FirstOrDefault();
+                
             if (typeSymbol == null)
             {
                 return SerializeToJson(new
                 {
                     Success = false,
-                    Error = "Type not found"
+                    Error = "Type not found",
+                    SearchedFor = searchName,
+                    OriginalName = typeName
                 });
             }
 
@@ -252,7 +273,7 @@ public class CodeSearchTools
     [Description("Search for symbols by pattern with advanced filtering")]
     public async Task<string> SearchSymbolsByPattern(
         [Description("Path to the .sln or .csproj file")] string solutionPath,
-        [Description("Search pattern (supports * and ? wildcards)")] string pattern,
+        [Description("Search pattern. Use 'prefix:User' for symbols starting with User, 'suffix:Controller' for symbols ending with Controller, 'contains:Service' for symbols containing Service, or plain text for exact match")] string pattern,
         [Description("Symbol kinds to include (comma-separated): Class,Method,Property,Field,Interface")] string? symbolKinds = null,
         [Description("Namespace filter (partial match)")] string? namespaceFilter = null,
         [Description("Maximum results to return")] int maxResults = 100,
@@ -281,11 +302,32 @@ public class CodeSearchTools
                 });
             }
             
-            // Convert wildcards to regex pattern
-            var regexPattern = pattern.Replace("*", ".*").Replace("?", ".");
+            // Pass pattern directly - Roslyn expects wildcards, not regex
+            // Use appropriate filter based on symbolKinds
+            var filter = SymbolFilter.All;
+            if (!string.IsNullOrEmpty(symbolKinds))
+            {
+                // If only looking for specific kinds, use a more restrictive filter
+                if (symbolKinds.Contains("Class") || symbolKinds.Contains("Interface") || 
+                    symbolKinds.Contains("Struct") || symbolKinds.Contains("Enum"))
+                {
+                    filter = SymbolFilter.Type;
+                }
+                else if (symbolKinds.Contains("Method") || symbolKinds.Contains("Property") || 
+                         symbolKinds.Contains("Field") || symbolKinds.Contains("Event"))
+                {
+                    filter = SymbolFilter.Member;
+                }
+                else if (symbolKinds.Contains("Namespace"))
+                {
+                    filter = SymbolFilter.Namespace;
+                }
+            }
             
             var symbols = await _symbolService.FindSymbolsByPatternAsync(
-                solution, regexPattern, SymbolFilter.All, cancellationToken);
+                solution, pattern, filter, cancellationToken);
+
+            _logger.LogDebug("Found {Count} symbols for pattern '{Pattern}'", symbols.Count(), pattern);
 
             // Apply filters
             var filtered = symbols.AsEnumerable();
@@ -293,12 +335,44 @@ public class CodeSearchTools
             if (!string.IsNullOrEmpty(symbolKinds))
             {
                 var kinds = symbolKinds.Split(',')
-                    .Select(k => Enum.TryParse<SymbolKind>(k.Trim(), out var kind) ? kind : (SymbolKind?)null)
+                    .Select(k => k.Trim())
+                    .Select(k => k.ToLowerInvariant() switch
+                    {
+                        "class" => SymbolKind.NamedType,
+                        "interface" => SymbolKind.NamedType,
+                        "struct" => SymbolKind.NamedType,
+                        "enum" => SymbolKind.NamedType,
+                        "method" => SymbolKind.Method,
+                        "property" => SymbolKind.Property,
+                        "field" => SymbolKind.Field,
+                        "event" => SymbolKind.Event,
+                        _ => Enum.TryParse<SymbolKind>(k, true, out var kind) ? kind : (SymbolKind?)null
+                    })
                     .Where(k => k.HasValue)
                     .Select(k => k!.Value)
                     .ToHashSet();
                 
-                filtered = filtered.Where(s => kinds.Contains(s.Kind));
+                // For named types, filter further by type kind
+                if (symbolKinds.ToLowerInvariant().Contains("class") || 
+                    symbolKinds.ToLowerInvariant().Contains("interface") ||
+                    symbolKinds.ToLowerInvariant().Contains("struct") ||
+                    symbolKinds.ToLowerInvariant().Contains("enum"))
+                {
+                    var typeKinds = new HashSet<string>();
+                    if (symbolKinds.ToLowerInvariant().Contains("class")) typeKinds.Add("Class");
+                    if (symbolKinds.ToLowerInvariant().Contains("interface")) typeKinds.Add("Interface");
+                    if (symbolKinds.ToLowerInvariant().Contains("struct")) typeKinds.Add("Struct");
+                    if (symbolKinds.ToLowerInvariant().Contains("enum")) typeKinds.Add("Enum");
+                    
+                    filtered = filtered.Where(s => 
+                        (kinds.Contains(s.Kind) && s.Kind != SymbolKind.NamedType) ||
+                        (s.Kind == SymbolKind.NamedType && s is INamedTypeSymbol typeSymbol && 
+                         typeKinds.Contains(typeSymbol.TypeKind.ToString())));
+                }
+                else
+                {
+                    filtered = filtered.Where(s => kinds.Contains(s.Kind));
+                }
             }
 
             if (!string.IsNullOrEmpty(namespaceFilter))
@@ -369,15 +443,26 @@ public class CodeSearchTools
             var symbols = await _symbolService.FindSymbolsAsync(
                 solution, symbolName, true, SymbolFilter.All, cancellationToken);
 
-            var results = symbols.Select(symbol =>
+            var symbol = symbols.FirstOrDefault();
+            if (symbol == null)
             {
-                var xmlDoc = symbol.GetDocumentationCommentXml();
-                var parsed = ParseXmlDocumentation(xmlDoc);
-
-                return new
+                return SerializeToJson(new
                 {
-                    Symbol = symbol.ToDisplayString(),
-                    Kind = symbol.Kind.ToString(),
+                    Success = false,
+                    Error = "Symbol not found"
+                });
+            }
+
+            var xmlDoc = symbol.GetDocumentationCommentXml();
+            var parsed = ParseXmlDocumentation(xmlDoc);
+
+            return SerializeToJson(new
+            {
+                Success = true,
+                Symbol = symbol.ToDisplayString(),
+                Kind = symbol.Kind.ToString(),
+                Documentation = new
+                {
                     Summary = parsed.Summary,
                     Remarks = parsed.Remarks,
                     Parameters = GetParameterDocumentation(symbol, parsed),
@@ -386,14 +471,7 @@ public class CodeSearchTools
                     Examples = parsed.Examples,
                     SeeAlso = parsed.SeeAlso,
                     InheritedFrom = includeInherited ? GetInheritedDocumentation(symbol) : null
-                };
-            }).ToArray();
-
-            return SerializeToJson(new
-            {
-                Success = true,
-                Count = results.Length,
-                Documentation = results
+                }
             });
         }
         catch (Exception ex)

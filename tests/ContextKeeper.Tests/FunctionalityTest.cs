@@ -13,20 +13,14 @@ namespace ContextKeeper.Tests;
 public class FunctionalityTest : TestBase, IDisposable
 {
     private readonly IContextKeeperService _service;
-    private readonly string _originalDirectory;
-    private readonly string _tempDirectory;
 
     public FunctionalityTest() : base(useMockConfiguration: true)
     {
         _service = GetService<IContextKeeperService>();
         
-        // Save original directory
-        _originalDirectory = Environment.CurrentDirectory;
-        
         // Create isolated test environment
-        _tempDirectory = CreateTempDirectory();
-        CopyTestData(_tempDirectory);
-        Environment.CurrentDirectory = _tempDirectory;
+        var testDir = CreateIsolatedEnvironment(TestScenario.Mixed);
+        SetCurrentDirectory(testDir);
     }
 
     [Fact]
@@ -101,14 +95,6 @@ public class FunctionalityTest : TestBase, IDisposable
     
     public override void Dispose()
     {
-        // Restore original directory
-        Environment.CurrentDirectory = _originalDirectory;
-        
-        // Clean up temporary directory
-        if (Directory.Exists(_tempDirectory))
-        {
-            Directory.Delete(_tempDirectory, true);
-        }
         base.Dispose();
     }
 }
