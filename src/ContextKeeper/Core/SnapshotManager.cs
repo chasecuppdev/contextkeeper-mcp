@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using ContextKeeper.Config.Models;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Utils;
 
 namespace ContextKeeper.Core;
 
-public class SnapshotManager
+public class SnapshotManager : ISnapshotManager
 {
     private readonly ILogger<SnapshotManager> _logger;
     
@@ -39,10 +40,11 @@ public class SnapshotManager
             .Replace("{date}", date)
             .Replace("{milestone}", milestoneDescription);
             
-        var snapshotPath = Path.Combine(profile.Paths.Snapshots, filename);
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
+        var snapshotPath = Path.Combine(snapshotsDir, filename);
         
         // Ensure directory exists
-        Directory.CreateDirectory(Path.GetDirectoryName(snapshotPath)!);
+        Directory.CreateDirectory(snapshotsDir);
         
         // Find the main document file
         var documentPath = FindMainDocument(profile);
@@ -140,7 +142,7 @@ public class SnapshotManager
     
     private string GetPreviousSnapshot(WorkflowProfile profile)
     {
-        var snapshotsDir = profile.Paths.Snapshots;
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
         if (!Directory.Exists(snapshotsDir))
             return "None";
             
@@ -175,7 +177,7 @@ public class SnapshotManager
         
         // Use template
         var header = profile.Header.Template
-            .Replace("{document}", Path.GetFileNameWithoutExtension(profile.Detection.Files.First()))
+            .Replace("{document}", profile.Detection.Files.First())
             .Replace("{date}", date)
             .Replace("{milestone}", milestoneDescription.Replace("-", " "))
             .Replace("{previous}", previousSnapshot)

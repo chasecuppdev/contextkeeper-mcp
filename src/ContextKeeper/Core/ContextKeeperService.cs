@@ -5,25 +5,26 @@ using System.Text.RegularExpressions;
 using ContextKeeper.Config;
 using ContextKeeper.Config.Models;
 using ContextKeeper.Json;
+using ContextKeeper.Core.Interfaces;
 
 namespace ContextKeeper.Core;
 
-public class ContextKeeperService
+public class ContextKeeperService : IContextKeeperService
 {
     private readonly ILogger<ContextKeeperService> _logger;
     private readonly IConfigurationService _configService;
-    private readonly SnapshotManager _snapshotManager;
-    private readonly SearchEngine _searchEngine;
-    private readonly EvolutionTracker _evolutionTracker;
-    private readonly CompactionEngine _compactionEngine;
+    private readonly ISnapshotManager _snapshotManager;
+    private readonly ISearchEngine _searchEngine;
+    private readonly IEvolutionTracker _evolutionTracker;
+    private readonly ICompactionEngine _compactionEngine;
     
     public ContextKeeperService(
         ILogger<ContextKeeperService> logger,
         IConfigurationService configService,
-        SnapshotManager snapshotManager,
-        SearchEngine searchEngine,
-        EvolutionTracker evolutionTracker,
-        CompactionEngine compactionEngine)
+        ISnapshotManager snapshotManager,
+        ISearchEngine searchEngine,
+        IEvolutionTracker evolutionTracker,
+        ICompactionEngine compactionEngine)
     {
         _logger = logger;
         _configService = configService;

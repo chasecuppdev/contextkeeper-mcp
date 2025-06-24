@@ -35,16 +35,28 @@ public class SymbolSearchService
     {
         try
         {
+            _logger.LogDebug("Finding symbols '{Name}' with filter {Filter} in {ProjectCount} projects", 
+                symbolName, filter, solution.Projects.Count());
+            
             // FindDeclarationsAsync in newer Roslyn versions
             var allSymbols = new List<ISymbol>();
             
             foreach (var project in solution.Projects)
             {
+                var compilation = await project.GetCompilationAsync(cancellationToken);
+                if (compilation == null)
+                {
+                    _logger.LogWarning("Could not get compilation for project {Project}", project.Name);
+                    continue;
+                }
+                
                 var symbols = await SymbolFinder.FindDeclarationsAsync(
-                    project, symbolName, ignoreCase, cancellationToken);
+                    project, symbolName, ignoreCase, filter, cancellationToken);
+                _logger.LogDebug("Found {Count} symbols in project {Project}", symbols.Count(), project.Name);
                 allSymbols.AddRange(symbols);
             }
             
+            _logger.LogDebug("Total symbols found: {Count}", allSymbols.Count);
             return allSymbols;
         }
         catch (Exception ex)
@@ -81,7 +93,7 @@ public class SymbolSearchService
         try
         {
             var symbols = await SymbolFinder.FindSourceDeclarationsWithPatternAsync(
-                solution, pattern, cancellationToken);
+                solution, pattern, filter, cancellationToken);
             return symbols;
         }
         catch (Exception ex)

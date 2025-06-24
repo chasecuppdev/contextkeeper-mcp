@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 using ContextKeeper.Protocol;
 using ContextKeeper.Json;
@@ -61,7 +62,7 @@ class Program
         command.SetHandler(async (string? profile) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.InitializeProject(profile);
             Console.WriteLine(result.ToJsonString());
         }, profileOption);
@@ -78,7 +79,7 @@ class Program
         command.SetHandler(async (string milestone) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.CreateSnapshot(milestone);
             Console.WriteLine(result.ToJsonString());
         }, milestoneArg);
@@ -93,7 +94,7 @@ class Program
         command.SetHandler(async () =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.CheckCompactionNeeded();
             Console.WriteLine(result.ToJsonString());
         });
@@ -113,7 +114,7 @@ class Program
         command.SetHandler(async (string term, int max) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.SearchHistory(term, max);
             Console.WriteLine(result.ToJsonString());
         }, termArg, maxOption);
@@ -130,7 +131,7 @@ class Program
         command.SetHandler(async (string component) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.GetArchitecturalEvolution(component);
             Console.WriteLine(result.ToJsonString());
         }, componentArg);
@@ -150,7 +151,7 @@ class Program
         command.SetHandler(async (string snapshot1, string snapshot2) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<ContextKeeperService>();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
             var result = await service.CompareSnapshots(snapshot1, snapshot2);
             Console.WriteLine(result.ToJsonString());
         }, snapshot1Arg, snapshot2Arg);
@@ -221,14 +222,14 @@ class Program
     
     static void RegisterServices(IServiceCollection services)
     {
-        // Core ContextKeeper services
+        // Core ContextKeeper services with interfaces
         services.AddSingleton<ProfileDetector>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
-        services.AddSingleton<SnapshotManager>();
-        services.AddSingleton<SearchEngine>();
-        services.AddSingleton<EvolutionTracker>();
-        services.AddSingleton<CompactionEngine>();
-        services.AddSingleton<ContextKeeperService>();
+        services.AddSingleton<ISnapshotManager, SnapshotManager>();
+        services.AddSingleton<ISearchEngine, SearchEngine>();
+        services.AddSingleton<IEvolutionTracker, EvolutionTracker>();
+        services.AddSingleton<ICompactionEngine, CompactionEngine>();
+        services.AddSingleton<IContextKeeperService, ContextKeeperService>();
         
         // Code analysis services
         services.AddSingleton<WorkspaceManager>();

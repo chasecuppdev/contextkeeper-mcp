@@ -29,7 +29,10 @@
 
   <!-- Copy test data to output directory -->
   <ItemGroup>
-    <None Include="TestData/**/*.*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Exclude TestData C# files from compilation -->
+    <Compile Remove="TestData/**/*.cs" />
+    <EmbeddedResource Remove="TestData/**/*" />
   </ItemGroup>
 
 </Project>

@@ -8,13 +8,23 @@ namespace ContextKeeper.Tests;
 /// Tests for storage configuration and directory structure.
 /// These tests verify that our new .contextkeeper directory structure works correctly.
 /// </summary>
-public class StorageTests : TestBase
+public class StorageTests : TestBase, IDisposable
 {
     private readonly IConfigurationService _configService;
+    private readonly string _tempDirectory;
+    private readonly string _originalDirectory;
     
-    public StorageTests()
+    public StorageTests() : base(useMockConfiguration: true)
     {
         _configService = GetService<IConfigurationService>();
+        
+        // Save original directory
+        _originalDirectory = Environment.CurrentDirectory;
+        
+        // Create isolated test environment
+        _tempDirectory = CreateTempDirectory();
+        CopyTestData(_tempDirectory);
+        Environment.CurrentDirectory = _tempDirectory;
     }
     
     [Fact]
@@ -81,20 +91,33 @@ public class StorageTests : TestBase
         // This test verifies our test data setup is correct
         
         // Assert - Check that our test data directories exist
-        Assert.True(Directory.Exists(Path.Combine(TestDataPath, ".contextkeeper")));
-        Assert.True(Directory.Exists(Path.Combine(TestDataPath, ".contextkeeper/claude-workflow/snapshots")));
-        Assert.True(Directory.Exists(Path.Combine(TestDataPath, ".contextkeeper/claude-workflow/compacted")));
-        Assert.True(Directory.Exists(Path.Combine(TestDataPath, ".contextkeeper/readme-workflow/snapshots")));
+        Assert.True(Directory.Exists(".contextkeeper"));
+        Assert.True(Directory.Exists(".contextkeeper/claude-workflow/snapshots"));
+        Assert.True(Directory.Exists(".contextkeeper/claude-workflow/compacted"));
+        Assert.True(Directory.Exists(".contextkeeper/readme-workflow/snapshots"));
         
         // Check that we have test snapshots
         var claudeSnapshots = Directory.GetFiles(
-            Path.Combine(TestDataPath, ".contextkeeper/claude-workflow/snapshots"), 
+            ".contextkeeper/claude-workflow/snapshots", 
             "*.md");
         Assert.Equal(4, claudeSnapshots.Length);
         
         var compactedFiles = Directory.GetFiles(
-            Path.Combine(TestDataPath, ".contextkeeper/claude-workflow/compacted"), 
+            ".contextkeeper/claude-workflow/compacted", 
             "*.md");
         Assert.Single(compactedFiles);
+    }
+    
+    public override void Dispose()
+    {
+        // Restore original directory
+        Environment.CurrentDirectory = _originalDirectory;
+        
+        // Clean up temporary directory
+        if (Directory.Exists(_tempDirectory))
+        {
+            Directory.Delete(_tempDirectory, true);
+        }
+        base.Dispose();
     }
 }

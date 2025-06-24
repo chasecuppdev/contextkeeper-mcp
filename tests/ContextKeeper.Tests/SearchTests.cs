@@ -1,5 +1,6 @@
 using Xunit;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 
 namespace ContextKeeper.Tests;
@@ -8,15 +9,23 @@ namespace ContextKeeper.Tests;
 /// Tests for search functionality across snapshots.
 /// Demonstrates testing text search and indexing capabilities.
 /// </summary>
-public class SearchTests : TestBase
+public class SearchTests : TestBase, IDisposable
 {
-    private readonly SearchEngine _searchEngine;
+    private readonly ISearchEngine _searchEngine;
     private readonly IConfigurationService _configService;
+    private readonly string _originalDirectory;
     
     public SearchTests()
     {
-        _searchEngine = GetService<SearchEngine>();
+        _searchEngine = GetService<ISearchEngine>();
         _configService = GetService<IConfigurationService>();
+        
+        // Save original directory and ensure we're in TestData
+        _originalDirectory = Environment.CurrentDirectory;
+        if (!File.Exists("CLAUDE.md") && Directory.Exists(TestDataPath))
+        {
+            Environment.CurrentDirectory = TestDataPath;
+        }
     }
     
     [Fact]
@@ -157,5 +166,11 @@ public class SearchTests : TestBase
         
         Assert.NotEmpty(apiFiles);
         Assert.Contains(apiFiles, f => f.Contains("api-endpoints"));
+    }
+    
+    public new void Dispose()
+    {
+        Environment.CurrentDirectory = _originalDirectory;
+        base.Dispose();
     }
 }

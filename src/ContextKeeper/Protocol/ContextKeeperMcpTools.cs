@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Json;
 
 namespace ContextKeeper.Protocol;
@@ -11,11 +12,11 @@ namespace ContextKeeper.Protocol;
 [McpServerToolType]
 public class ContextKeeperMcpTools
 {
-    private readonly ContextKeeperService _service;
+    private readonly IContextKeeperService _service;
     private readonly ILogger<ContextKeeperMcpTools> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public ContextKeeperMcpTools(ContextKeeperService service, ILogger<ContextKeeperMcpTools> logger)
+    public ContextKeeperMcpTools(IContextKeeperService service, ILogger<ContextKeeperMcpTools> logger)
     {
         _service = service;
         _logger = logger;

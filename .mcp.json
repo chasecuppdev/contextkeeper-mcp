@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "contextkeeper": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "/home/chasecupp43/repos/contextkeeper-mcp/src/ContextKeeper/ContextKeeper.csproj"
+      ],
+      "env": {}
+    }
+  }
+}

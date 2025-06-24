@@ -1,15 +1,16 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Json;
 
 namespace ContextKeeper.Protocol;
 
 public class SimpleJsonRpcServer
 {
-    private readonly ContextKeeperService _service;
+    private readonly IContextKeeperService _service;
     
-    public SimpleJsonRpcServer(ContextKeeperService service)
+    public SimpleJsonRpcServer(IContextKeeperService service)
     {
         _service = service;
     }

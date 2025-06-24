@@ -2,7 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
+using ContextKeeper.CodeAnalysis;
 
 namespace ContextKeeper.Tests;
 
@@ -16,7 +18,15 @@ public abstract class TestBase : IDisposable
     protected readonly IServiceProvider Services;
     protected readonly string TestDataPath;
     
-    protected TestBase()
+    protected TestBase() : this(useMockConfiguration: false)
+    {
+    }
+    
+    /// <summary>
+    /// Initializes the test base with optional mock configuration.
+    /// </summary>
+    /// <param name="useMockConfiguration">If true, uses mocked configuration service to prevent file I/O.</param>
+    protected TestBase(bool useMockConfiguration)
     {
         // Set up test data path relative to test project
         // When running tests, we're already in the output directory
@@ -24,7 +34,8 @@ public abstract class TestBase : IDisposable
         
         // Create a host with all the necessary services
         // This mimics how the real application runs
-        Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
+        // Use new HostBuilder() instead of CreateDefaultBuilder() to avoid file system issues
+        Host = new HostBuilder()
             .ConfigureServices((context, services) =>
             {
                 // Configure logging for tests
@@ -35,21 +46,33 @@ public abstract class TestBase : IDisposable
                     builder.SetMinimumLevel(LogLevel.Debug);
                 });
                 
-                // Register all the services
-                services.AddSingleton<ProfileDetector>();
-                services.AddSingleton<IConfigurationService, ConfigurationService>();
-                services.AddSingleton<SnapshotManager>();
-                services.AddSingleton<SearchEngine>();
-                services.AddSingleton<EvolutionTracker>();
-                services.AddSingleton<CompactionEngine>();
-                services.AddSingleton<ContextKeeperService>();
+                // Register configuration service (mocked or real)
+                services.AddSingleton<ProfileDetector>(); // Always needed
+                if (useMockConfiguration)
+                {
+                    var mockConfig = Helpers.MockConfigurationService.Create();
+                    services.AddSingleton<IConfigurationService>(mockConfig.Object);
+                }
+                else
+                {
+                    services.AddSingleton<IConfigurationService, ConfigurationService>();
+                }
+                
+                // Register all other services with their interfaces
+                services.AddSingleton<ISnapshotManager, SnapshotManager>();
+                services.AddSingleton<ISearchEngine, SearchEngine>();
+                services.AddSingleton<IEvolutionTracker, EvolutionTracker>();
+                services.AddSingleton<ICompactionEngine, CompactionEngine>();
+                services.AddSingleton<IContextKeeperService, ContextKeeperService>();
+                
+                // Add C# Code Analysis services
+                services.AddSingleton<WorkspaceManager>();
+                services.AddSingleton<SymbolSearchService>();
+                services.AddSingleton<CodeSearchTools>();
             })
             .Build();
             
         Services = Host.Services;
-        
-        // Change working directory to test data
-        Environment.CurrentDirectory = TestDataPath;
     }
     
     /// <summary>

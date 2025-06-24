@@ -79,13 +79,13 @@ public class ProfileDetector
             Detection = new DetectionConfig
             {
                 Files = new List<string> { "CLAUDE.md" },
-                Paths = new List<string> { "FeatureData/DataHistory" }
+                Paths = new List<string> { ".contextkeeper" }
             },
             Paths = new PathConfig
             {
-                History = "FeatureData/DataHistory",
-                Snapshots = "FeatureData/DataHistory/CLAUDE",
-                Compacted = "FeatureData/DataHistory/Compacted"
+                History = ".contextkeeper/claude-workflow",
+                Snapshots = ".contextkeeper/claude-workflow/snapshots",
+                Compacted = ".contextkeeper/claude-workflow/compacted"
             },
             Snapshot = new SnapshotConfig
             {
@@ -117,9 +117,9 @@ public class ProfileDetector
             },
             Paths = new PathConfig
             {
-                History = ".history",
-                Snapshots = ".history/snapshots",
-                Compacted = ".history/compacted"
+                History = ".contextkeeper/readme-workflow",
+                Snapshots = ".contextkeeper/readme-workflow/snapshots",
+                Compacted = ".contextkeeper/readme-workflow/compacted"
             },
             Snapshot = new SnapshotConfig
             {

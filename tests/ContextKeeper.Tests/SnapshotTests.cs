@@ -1,5 +1,6 @@
 using Xunit;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 
 namespace ContextKeeper.Tests;
@@ -10,14 +11,18 @@ namespace ContextKeeper.Tests;
 /// </summary>
 public class SnapshotTests : TestBase, IDisposable
 {
-    private readonly SnapshotManager _snapshotManager;
+    private readonly ISnapshotManager _snapshotManager;
     private readonly IConfigurationService _configService;
     private readonly string _tempDirectory;
+    private readonly string _originalDirectory;
     
     public SnapshotTests()
     {
-        _snapshotManager = GetService<SnapshotManager>();
+        _snapshotManager = GetService<ISnapshotManager>();
         _configService = GetService<IConfigurationService>();
+        
+        // Save original directory
+        _originalDirectory = Environment.CurrentDirectory;
         
         // Create isolated test environment
         _tempDirectory = CreateTempDirectory();
@@ -80,7 +85,10 @@ public class SnapshotTests : TestBase, IDisposable
         
         // Assert
         Assert.False(result.Success);
-        Assert.Contains("validation", result.Message.ToLower());
+        Assert.True(result.Message.ToLower().Contains("must match pattern") || 
+                   result.Message.ToLower().Contains("cannot be empty") ||
+                   result.Message.ToLower().Contains("exceeds maximum length"),
+                   $"Expected validation error but got: {result.Message}");
     }
     
     [Fact]
@@ -136,6 +144,9 @@ public class SnapshotTests : TestBase, IDisposable
     
     public override void Dispose()
     {
+        // Restore original directory
+        Environment.CurrentDirectory = _originalDirectory;
+        
         // Clean up temporary directory
         if (Directory.Exists(_tempDirectory))
         {

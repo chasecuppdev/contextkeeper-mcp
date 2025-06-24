@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Logging;
 using ContextKeeper.Config.Models;
+using ContextKeeper.Core.Interfaces;
 
 namespace ContextKeeper.Core;
 
-public class SearchEngine
+public class SearchEngine : ISearchEngine
 {
     private readonly ILogger<SearchEngine> _logger;
     
@@ -20,13 +21,27 @@ public class SearchEngine
             Matches = new List<SearchMatch>()
         };
         
-        var snapshotsDir = profile.Paths.Snapshots;
-        if (!Directory.Exists(snapshotsDir))
+        // Search in both snapshots and compacted directories
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
+        var compactedDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Compacted ?? "");
+        
+        var searchDirs = new List<string>();
+        if (Directory.Exists(snapshotsDir))
+            searchDirs.Add(snapshotsDir);
+        if (Directory.Exists(compactedDir))
+            searchDirs.Add(compactedDir);
+            
+        if (searchDirs.Count == 0)
         {
+            _logger.LogWarning("No search directories found");
             return results;
         }
         
-        var files = Directory.GetFiles(snapshotsDir, "*.md").OrderByDescending(f => f);
+        // Get all files from both directories
+        var files = searchDirs
+            .SelectMany(dir => Directory.GetFiles(dir, "*.md"))
+            .OrderByDescending(f => f)
+            .ToList();
         
         foreach (var file in files)
         {
@@ -61,10 +76,11 @@ public class SearchEngine
     public Task<List<string>> SearchFilesAsync(string pattern, WorkflowProfile profile)
     {
         var matches = new List<string>();
-        var snapshotsDir = profile.Paths.Snapshots;
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
         
         if (!Directory.Exists(snapshotsDir))
         {
+            _logger.LogWarning("Snapshots directory not found: {Directory}", snapshotsDir);
             return Task.FromResult(matches);
         }
         

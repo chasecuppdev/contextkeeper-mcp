@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 using ContextKeeper.Protocol;
 using Xunit;
@@ -9,33 +10,23 @@ using System.Text.Json.Nodes;
 
 namespace ContextKeeper.Tests;
 
-public class FunctionalityTest
+public class FunctionalityTest : TestBase, IDisposable
 {
-    private readonly IHost _host;
-    private readonly ContextKeeperService _service;
+    private readonly IContextKeeperService _service;
+    private readonly string _originalDirectory;
+    private readonly string _tempDirectory;
 
-    public FunctionalityTest()
+    public FunctionalityTest() : base(useMockConfiguration: true)
     {
-        _host = Host.CreateDefaultBuilder()
-            .ConfigureServices((context, services) =>
-            {
-                services.AddLogging(builder =>
-                {
-                    builder.ClearProviders();
-                    builder.AddConsole();
-                });
-                
-                services.AddSingleton<ProfileDetector>();
-                services.AddSingleton<IConfigurationService, ConfigurationService>();
-                services.AddSingleton<SnapshotManager>();
-                services.AddSingleton<SearchEngine>();
-                services.AddSingleton<EvolutionTracker>();
-                services.AddSingleton<CompactionEngine>();
-                services.AddSingleton<ContextKeeperService>();
-            })
-            .Build();
-            
-        _service = _host.Services.GetRequiredService<ContextKeeperService>();
+        _service = GetService<IContextKeeperService>();
+        
+        // Save original directory
+        _originalDirectory = Environment.CurrentDirectory;
+        
+        // Create isolated test environment
+        _tempDirectory = CreateTempDirectory();
+        CopyTestData(_tempDirectory);
+        Environment.CurrentDirectory = _tempDirectory;
     }
 
     [Fact]
@@ -106,5 +97,18 @@ public class FunctionalityTest
         
         // Assert
         Assert.NotNull(server);
+    }
+    
+    public override void Dispose()
+    {
+        // Restore original directory
+        Environment.CurrentDirectory = _originalDirectory;
+        
+        // Clean up temporary directory
+        if (Directory.Exists(_tempDirectory))
+        {
+            Directory.Delete(_tempDirectory, true);
+        }
+        base.Dispose();
     }
 }

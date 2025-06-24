@@ -1,5 +1,6 @@
 using Xunit;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 
 namespace ContextKeeper.Tests;
@@ -8,15 +9,23 @@ namespace ContextKeeper.Tests;
 /// Tests for tracking component evolution over time.
 /// This demonstrates how to test temporal data and history tracking.
 /// </summary>
-public class EvolutionTests : TestBase
+public class EvolutionTests : TestBase, IDisposable
 {
-    private readonly EvolutionTracker _evolutionTracker;
+    private readonly IEvolutionTracker _evolutionTracker;
     private readonly IConfigurationService _configService;
+    private readonly string _originalDirectory;
     
     public EvolutionTests()
     {
-        _evolutionTracker = GetService<EvolutionTracker>();
+        _evolutionTracker = GetService<IEvolutionTracker>();
         _configService = GetService<IConfigurationService>();
+        
+        // Save original directory and ensure we're in TestData
+        _originalDirectory = Environment.CurrentDirectory;
+        if (!File.Exists("CLAUDE.md") && Directory.Exists(TestDataPath))
+        {
+            Environment.CurrentDirectory = TestDataPath;
+        }
     }
     
     [Fact]
@@ -24,7 +33,7 @@ public class EvolutionTests : TestBase
     {
         // Arrange
         var profile = await _configService.GetActiveProfileAsync();
-        var componentName = "AuthService";
+        var componentName = "Authentication";
         
         // Act
         var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, profile);
@@ -163,5 +172,11 @@ public class EvolutionTests : TestBase
         // CQRS should appear later with API implementation
         Assert.NotEmpty(cqrsEvolution.Steps);
         Assert.True(cqrsEvolution.Steps.First().Date >= new DateTime(2024, 2, 1));
+    }
+    
+    public new void Dispose()
+    {
+        Environment.CurrentDirectory = _originalDirectory;
+        base.Dispose();
     }
 }

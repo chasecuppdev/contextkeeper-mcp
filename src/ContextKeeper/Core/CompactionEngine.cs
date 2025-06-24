@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Logging;
 using ContextKeeper.Config.Models;
+using ContextKeeper.Core.Interfaces;
 
 namespace ContextKeeper.Core;
 
-public class CompactionEngine
+public class CompactionEngine : ICompactionEngine
 {
     private readonly ILogger<CompactionEngine> _logger;
     

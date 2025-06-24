@@ -1,6 +1,7 @@
 using Xunit;
 using System.Text.Json.Nodes;
 using ContextKeeper.Core;
+using ContextKeeper.Core.Interfaces;
 
 namespace ContextKeeper.Tests;
 
@@ -10,12 +11,16 @@ namespace ContextKeeper.Tests;
 /// </summary>
 public class IntegrationTests : TestBase, IDisposable
 {
-    private readonly ContextKeeperService _service;
+    private readonly IContextKeeperService _service;
     private readonly string _tempDirectory;
+    private readonly string _originalDirectory;
     
     public IntegrationTests()
     {
-        _service = GetService<ContextKeeperService>();
+        _service = GetService<IContextKeeperService>();
+        
+        // Save original directory
+        _originalDirectory = Environment.CurrentDirectory;
         
         // Create isolated environment for integration tests
         _tempDirectory = CreateTempDirectory();
@@ -177,6 +182,9 @@ public class IntegrationTests : TestBase, IDisposable
     
     public override void Dispose()
     {
+        // Restore original directory
+        Environment.CurrentDirectory = _originalDirectory;
+        
         // Clean up temporary directory
         if (Directory.Exists(_tempDirectory))
         {

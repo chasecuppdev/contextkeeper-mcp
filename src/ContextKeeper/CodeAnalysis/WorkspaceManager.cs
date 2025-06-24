@@ -51,46 +51,51 @@ public class WorkspaceManager
 
     public async Task<Solution?> LoadSolutionAsync(string solutionPath)
     {
+        // Check cache first
+        if (_solutionCache.TryGetValue(solutionPath, out var cachedSolution))
+        {
+            return cachedSolution;
+        }
+        
+        _logger.LogInformation("Loading solution: {Path}", solutionPath);
+        
+        if (!File.Exists(solutionPath))
+        {
+            _logger.LogError("Solution file not found: {Path}", solutionPath);
+            throw new FileNotFoundException($"Solution file not found: {solutionPath}", solutionPath);
+        }
+        
         try
         {
-            return await _solutionCache.GetOrAddAsync(solutionPath, async path =>
-            {
-                _logger.LogInformation("Loading solution: {Path}", path);
-                
-                if (!File.Exists(path))
-                {
-                    _logger.LogError("Solution file not found: {Path}", path);
-                    throw new FileNotFoundException($"Solution file not found: {path}");
-                }
-                
-                return await _workspace.OpenSolutionAsync(path);
-            });
+            var solution = await _workspace.OpenSolutionAsync(solutionPath);
+            _solutionCache.TryAdd(solutionPath, solution);
+            return solution;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading solution: {Path}", solutionPath);
-            return null;
+            throw new InvalidOperationException($"Failed to load solution: {solutionPath}", ex);
         }
     }
 
     public async Task<Project?> LoadProjectAsync(string projectPath)
     {
+        _logger.LogInformation("Loading project: {Path}", projectPath);
+        
+        if (!File.Exists(projectPath))
+        {
+            _logger.LogError("Project file not found: {Path}", projectPath);
+            throw new FileNotFoundException($"Project file not found: {projectPath}", projectPath);
+        }
+        
         try
         {
-            _logger.LogInformation("Loading project: {Path}", projectPath);
-            
-            if (!File.Exists(projectPath))
-            {
-                _logger.LogError("Project file not found: {Path}", projectPath);
-                return null;
-            }
-            
             return await _workspace.OpenProjectAsync(projectPath);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading project: {Path}", projectPath);
-            return null;
+            throw new InvalidOperationException($"Failed to load project: {projectPath}", ex);
         }
     }
 
