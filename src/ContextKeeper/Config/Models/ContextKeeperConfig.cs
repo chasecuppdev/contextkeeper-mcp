@@ -14,6 +14,7 @@ public class PathConfig
     public string History { get; set; } = ".contextkeeper";
     public string Snapshots { get; set; } = ".contextkeeper/snapshots";
     public string Archived { get; set; } = ".contextkeeper/archived";
+    public string UserWorkspace { get; set; } = "context-workspace/workspace";
 }
 
 public class SnapshotConfig

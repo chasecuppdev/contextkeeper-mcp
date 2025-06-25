@@ -120,6 +120,7 @@ public class ContextCaptureService : IContextCaptureService
     {
         var documentation = new Dictionary<string, string>();
         
+        // Capture documentation from current directory
         foreach (var pattern in config.ContextTracking.DocumentationFiles)
         {
             var files = FileSystemHelpers.GetMatchingFiles(Directory.GetCurrentDirectory(), pattern);
@@ -142,6 +143,33 @@ public class ContextCaptureService : IContextCaptureService
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Could not read documentation file: {File}", file);
+                }
+            }
+        }
+        
+        // Also capture files from user workspace if it exists
+        var workspacePath = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.UserWorkspace);
+        if (Directory.Exists(workspacePath))
+        {
+            _logger.LogDebug("Capturing documentation from user workspace: {Path}", workspacePath);
+            
+            foreach (var pattern in config.ContextTracking.DocumentationFiles)
+            {
+                var workspaceFiles = FileSystemHelpers.GetMatchingFiles(workspacePath, pattern);
+                
+                foreach (var file in workspaceFiles)
+                {
+                    try
+                    {
+                        var content = await File.ReadAllTextAsync(file);
+                        var relativePath = Path.GetRelativePath(Directory.GetCurrentDirectory(), file);
+                        documentation[relativePath] = content;
+                        _logger.LogDebug("Captured workspace file: {File}", relativePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not read workspace file: {File}", file);
+                    }
                 }
             }
         }

@@ -39,6 +39,13 @@ Five Roslyn-powered code analysis tools:
 - `SearchSymbolsByPattern` - Wildcard pattern matching
 - `GetSymbolDocumentation` - Extract XML documentation
 
+### 📝 User Workspace
+Flexible documentation area accessible via Claude's @ symbol:
+- **Requirements**: Store project specifications and user stories
+- **Design**: Document architectural decisions and patterns
+- **Instructions**: Custom AI assistant guidelines
+- **Auto-captured**: Workspace files included in all snapshots
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -92,6 +99,13 @@ dotnet run --project src/ContextKeeper -- init --git-hooks
 │   └── SNAPSHOT_2025-06-24_git-commit_abc123.md
 └── archived/           # Compacted history
     └── ARCHIVED_2024-01-01_2024-03-31_COMPACTED.md
+
+context-workspace/      # User-accessible workspace (visible in Claude's @)
+├── workspace/          # Your custom documentation
+│   ├── requirements/   # Project requirements
+│   ├── design/        # Design decisions
+│   └── instructions/  # AI instructions
+└── project-history/   # ContextKeeper development docs
 ```
 
 ### Snapshot Format
@@ -138,7 +152,8 @@ ContextKeeper implements the standard MCP protocol and works with any compatible
   "paths": {
     "history": ".contextkeeper",
     "snapshots": ".contextkeeper/snapshots",
-    "archived": ".contextkeeper/archived"
+    "archived": ".contextkeeper/archived",
+    "userWorkspace": "context-workspace/workspace"
   },
   "snapshot": {
     "dateFormat": "yyyy-MM-dd",
