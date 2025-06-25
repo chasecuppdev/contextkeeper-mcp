@@ -10,6 +10,7 @@ using ContextKeeper.Config;
 using ContextKeeper.Protocol;
 using ContextKeeper.Json;
 using ContextKeeper.CodeAnalysis;
+using ContextKeeper.Utils;
 using ModelContextProtocol.Server;
 using Microsoft.Build.Locator;
 
@@ -41,6 +42,7 @@ class Program
         // Add subcommands
         rootCommand.AddCommand(CreateInitCommand());
         rootCommand.AddCommand(CreateSnapshotCommand());
+        rootCommand.AddCommand(CreateCaptureCommand());
         rootCommand.AddCommand(CreateCheckCommand());
         rootCommand.AddCommand(CreateSearchCommand());
         rootCommand.AddCommand(CreateEvolutionCommand());
@@ -53,19 +55,42 @@ class Program
     static Command CreateInitCommand()
     {
         var command = new Command("init", "Initialize ContextKeeper in the current project");
-        var profileOption = new Option<string?>(
-            "--profile",
-            "Profile to use (defaults to auto-detection)"
+        var gitHooksOption = new Option<bool>(
+            "--git-hooks",
+            getDefaultValue: () => true,
+            "Install git hooks for automatic context capture"
         );
-        command.AddOption(profileOption);
+        command.AddOption(gitHooksOption);
         
-        command.SetHandler(async (string? profile) =>
+        command.SetHandler(async (bool gitHooks) =>
         {
             var host = CreateHost();
-            var service = host.Services.GetRequiredService<IContextKeeperService>();
-            var result = await service.InitializeProject(profile);
-            Console.WriteLine(result.ToJsonString());
-        }, profileOption);
+            var configService = host.Services.GetRequiredService<IConfigurationService>();
+            var gitHelper = host.Services.GetRequiredService<GitHelper>();
+            
+            try
+            {
+                // Initialize project configuration
+                await configService.InitializeProjectAsync();
+                Console.WriteLine("✓ ContextKeeper initialized");
+                
+                // Install git hooks if requested
+                if (gitHooks && await gitHelper.IsGitRepositoryAsync(Directory.GetCurrentDirectory()))
+                {
+                    await gitHelper.InitializeGitHooksAsync(Directory.GetCurrentDirectory());
+                    Console.WriteLine("✓ Git hooks installed");
+                }
+                
+                Console.WriteLine("\nNext steps:");
+                Console.WriteLine("- Run 'contextkeeper snapshot <milestone>' to create a manual snapshot");
+                Console.WriteLine("- Git hooks will auto-capture on commits and branch switches");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Initialization failed: {ex.Message}");
+                Environment.Exit(1);
+            }
+        }, gitHooksOption);
         
         return command;
     }
@@ -87,9 +112,54 @@ class Program
         return command;
     }
     
+    static Command CreateCaptureCommand()
+    {
+        var command = new Command("capture", "Capture development context (used by git hooks)");
+        
+        var typeOption = new Option<string>(
+            "--type",
+            getDefaultValue: () => "manual",
+            "Type of capture (manual, pre-commit, checkout)"
+        );
+        command.AddOption(typeOption);
+        
+        var autoOption = new Option<bool>(
+            "--auto",
+            "Running in automatic mode (quieter output)"
+        );
+        command.AddOption(autoOption);
+        
+        command.SetHandler(async (string type, bool auto) =>
+        {
+            var host = CreateHost();
+            var service = host.Services.GetRequiredService<IContextKeeperService>();
+            
+            // Generate automatic milestone based on type
+            string milestone = type switch
+            {
+                "pre-commit" => $"pre-commit-{DateTime.Now:yyyyMMdd-HHmmss}",
+                "checkout" => $"checkout-{DateTime.Now:yyyyMMdd-HHmmss}",
+                _ => $"manual-{DateTime.Now:yyyyMMdd-HHmmss}"
+            };
+            
+            var result = await service.CreateSnapshot(milestone);
+            
+            if (!auto)
+            {
+                Console.WriteLine(result.ToJsonString());
+            }
+            else if (result["success"]?.GetValue<bool>() == true)
+            {
+                Console.WriteLine($"[ContextKeeper] Captured {type} context");
+            }
+        }, typeOption, autoOption);
+        
+        return command;
+    }
+    
     static Command CreateCheckCommand()
     {
-        var command = new Command("check", "Check if compaction is needed");
+        var command = new Command("check", "Check snapshot status and auto-compaction info");
         
         command.SetHandler(async () =>
         {
@@ -223,7 +293,6 @@ class Program
     static void RegisterServices(IServiceCollection services)
     {
         // Core ContextKeeper services with interfaces
-        services.AddSingleton<ProfileDetector>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<ISnapshotManager, SnapshotManager>();
         services.AddSingleton<ISearchEngine, SearchEngine>();
@@ -235,6 +304,10 @@ class Program
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<SymbolSearchService>();
         services.AddSingleton<CodeSearchTools>();
+        
+        // Context capture services
+        services.AddSingleton<GitHelper>();
+        services.AddSingleton<IContextCaptureService, ContextCaptureService>();
         
         // MCP Tools
         services.AddSingleton<ContextKeeperMcpTools>();

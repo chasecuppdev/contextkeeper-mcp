@@ -14,7 +14,7 @@ public class EvolutionTracker : IEvolutionTracker
         _logger = logger;
     }
     
-    public async Task<EvolutionResult> GetEvolutionAsync(string componentName, WorkflowProfile profile)
+    public async Task<EvolutionResult> GetEvolutionAsync(string componentName, ContextKeeperConfig config)
     {
         var result = new EvolutionResult
         {
@@ -22,7 +22,7 @@ public class EvolutionTracker : IEvolutionTracker
             Steps = new List<EvolutionStep>()
         };
         
-        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
         if (!Directory.Exists(snapshotsDir))
         {
             _logger.LogWarning("Snapshots directory not found: {Directory}", snapshotsDir);
@@ -35,8 +35,8 @@ public class EvolutionTracker : IEvolutionTracker
         foreach (var file in files)
         {
             var content = await File.ReadAllTextAsync(file);
-            var date = ExtractDateFromFilename(file, profile);
-            var milestone = ExtractMilestoneFromFilename(file, profile);
+            var date = ExtractDateFromFilename(file, config);
+            var milestone = ExtractMilestoneFromFilename(file, config);
             
             if (content.Contains(componentName, StringComparison.OrdinalIgnoreCase))
             {
@@ -58,7 +58,7 @@ public class EvolutionTracker : IEvolutionTracker
         return result;
     }
     
-    public Task<TimelineResult> GetTimelineAsync(WorkflowProfile profile)
+    public Task<TimelineResult> GetTimelineAsync(ContextKeeperConfig config)
     {
         var timeline = new TimelineResult
         {
@@ -66,8 +66,8 @@ public class EvolutionTracker : IEvolutionTracker
         };
         
         // Get files from both snapshots and compacted directories
-        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
-        var compactedDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Compacted ?? "");
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
+        var compactedDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Archived);
         
         var allFiles = new List<string>();
         
@@ -76,7 +76,7 @@ public class EvolutionTracker : IEvolutionTracker
             allFiles.AddRange(Directory.GetFiles(snapshotsDir, "*.md"));
         }
         
-        if (!string.IsNullOrEmpty(profile.Paths.Compacted) && Directory.Exists(compactedDir))
+        if (Directory.Exists(compactedDir))
         {
             allFiles.AddRange(Directory.GetFiles(compactedDir, "*.md"));
         }
@@ -89,8 +89,8 @@ public class EvolutionTracker : IEvolutionTracker
         
         foreach (var file in allFiles.OrderBy(f => f))
         {
-            var date = ExtractDateFromFilename(file, profile);
-            var milestone = ExtractMilestoneFromFilename(file, profile);
+            var date = ExtractDateFromFilename(file, config);
+            var milestone = ExtractMilestoneFromFilename(file, config);
             var isCompacted = file.Contains("COMPACTED");
             
             timeline.Events.Add(new TimelineEvent
@@ -105,22 +105,24 @@ public class EvolutionTracker : IEvolutionTracker
         return Task.FromResult(timeline);
     }
     
-    private DateTime ExtractDateFromFilename(string filename, WorkflowProfile profile)
+    private DateTime ExtractDateFromFilename(string filename, ContextKeeperConfig config)
     {
-        var pattern = profile.Snapshot.FilenamePattern
-            .Replace("{prefix}", Regex.Escape(profile.Snapshot.Prefix))
+        // Parse pattern from config: SNAPSHOT_{date}_{type}_{milestone}.md
+        var pattern = config.Snapshot.FilenamePattern
             .Replace("{date}", @"(\d{4}-\d{2}-\d{2})")
+            .Replace("{type}", ".*")
             .Replace("{milestone}", ".*");
             
         var match = Regex.Match(Path.GetFileName(filename), pattern);
         return match.Success ? DateTime.Parse(match.Groups[1].Value) : DateTime.MinValue;
     }
     
-    private string ExtractMilestoneFromFilename(string filename, WorkflowProfile profile)
+    private string ExtractMilestoneFromFilename(string filename, ContextKeeperConfig config)
     {
-        var pattern = profile.Snapshot.FilenamePattern
-            .Replace("{prefix}", Regex.Escape(profile.Snapshot.Prefix))
+        // Parse pattern from config: SNAPSHOT_{date}_{type}_{milestone}.md
+        var pattern = config.Snapshot.FilenamePattern
             .Replace("{date}", @"\d{4}-\d{2}-\d{2}")
+            .Replace("{type}", ".*")
             .Replace("{milestone}", @"(.+)")
             .Replace(".md", @"\.md");
             

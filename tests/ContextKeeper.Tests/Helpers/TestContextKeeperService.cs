@@ -74,38 +74,25 @@ public class TestContextKeeperService : IContextKeeperService
             _logger.LogInformation("Test mode: Skipping config file creation");
             
             // Simulate the initialization without creating config file
-            var profile = profileName != null 
-                ? await _configService.GetProfileAsync(profileName)
-                : await _configService.DetectProfileAsync();
-                
-            if (profile == null)
-            {
-                return new JsonObject
-                {
-                    ["success"] = false,
-                    ["message"] = "No suitable profile found. Please specify a profile name."
-                };
-            }
+            var config = await _configService.GetConfigAsync();
             
             // Create necessary directories
-            var paths = profile.Paths;
+            var paths = config.Paths;
             Directory.CreateDirectory(paths.History);
             Directory.CreateDirectory(paths.Snapshots);
-            if (!string.IsNullOrEmpty(paths.Compacted))
-            {
-                Directory.CreateDirectory(paths.Compacted);
-            }
+            Directory.CreateDirectory(paths.Archived);
             
             // Return success without creating config file
             return new JsonObject
             {
                 ["success"] = true,
-                ["profile"] = profile.Name,
-                ["message"] = $"Initialized ContextKeeper with '{profile.Name}' profile (test mode - no config file created)",
+                ["version"] = config.Version,
+                ["message"] = "Initialized ContextKeeper successfully (test mode - no config file created)",
                 ["directories"] = new JsonObject
                 {
                     ["history"] = paths.History,
-                    ["snapshots"] = paths.Snapshots
+                    ["snapshots"] = paths.Snapshots,
+                    ["archived"] = paths.Archived
                 }
             };
         }

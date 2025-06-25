@@ -24,12 +24,13 @@ public class McpServerIntegrationTests : TestBase
         services.AddLogging();
         
         // Register all ContextKeeper services (from TestBase)
-        services.AddSingleton<ContextKeeper.Config.ProfileDetector>();
         services.AddSingleton<ContextKeeper.Config.IConfigurationService, ContextKeeper.Config.ConfigurationService>();
         services.AddSingleton<ContextKeeper.Core.Interfaces.ISnapshotManager, ContextKeeper.Core.SnapshotManager>();
         services.AddSingleton<ContextKeeper.Core.Interfaces.ISearchEngine, ContextKeeper.Core.SearchEngine>();
         services.AddSingleton<ContextKeeper.Core.Interfaces.IEvolutionTracker, ContextKeeper.Core.EvolutionTracker>();
         services.AddSingleton<ContextKeeper.Core.Interfaces.ICompactionEngine, ContextKeeper.Core.CompactionEngine>();
+        services.AddSingleton<ContextKeeper.Core.IContextCaptureService, ContextKeeper.Core.ContextCaptureService>();
+        services.AddSingleton<ContextKeeper.Utils.GitHelper>();
         services.AddSingleton<ContextKeeper.Core.Interfaces.IContextKeeperService, ContextKeeper.Core.ContextKeeperService>();
         services.AddSingleton<WorkspaceManager>();
         services.AddSingleton<SymbolSearchService>();
@@ -86,15 +87,16 @@ public class McpServerIntegrationTests : TestBase
             .Select(m => m.Name)
             .ToList();
         
-        // Assert expected tools exist
-        toolMethods.Should().Contain("CreateSnapshot");
-        toolMethods.Should().Contain("CheckCompaction");
-        toolMethods.Should().Contain("SearchHistory");
-        toolMethods.Should().Contain("GetEvolution");
+        // Assert expected tools exist (new method names)
+        toolMethods.Should().Contain("Snapshot");
+        toolMethods.Should().Contain("GetStatus");
+        toolMethods.Should().Contain("SearchEvolution");
+        toolMethods.Should().Contain("TrackComponent");
         toolMethods.Should().Contain("CompareSnapshots");
+        toolMethods.Should().Contain("GetTimeline");
         
-        // Should have at least 5 tools
-        toolMethods.Count.Should().BeGreaterThanOrEqualTo(5);
+        // Should have at least 6 tools
+        toolMethods.Count.Should().BeGreaterThanOrEqualTo(6);
     }
     
     [Fact]

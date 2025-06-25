@@ -22,84 +22,87 @@ public class StorageTests : TestBase, IDisposable
     }
     
     [Fact]
-    public async Task GetActiveProfile_WithClaudeFile_ShouldUseContextKeeperDirectory()
+    public async Task GetConfig_ShouldUseContextKeeperDirectory()
     {
         // Act
-        var profile = await _configService.GetActiveProfileAsync();
-        
-        // Assert
-        Assert.NotNull(profile);
-        Assert.Equal("claude-workflow", profile.Name);
-        Assert.StartsWith(".contextkeeper/", profile.Paths.History);
-        Assert.Equal(".contextkeeper/claude-workflow", profile.Paths.History);
-        Assert.Equal(".contextkeeper/claude-workflow/snapshots", profile.Paths.Snapshots);
-        Assert.Equal(".contextkeeper/claude-workflow/compacted", profile.Paths.Compacted);
-    }
-    
-    [Fact]
-    public async Task GetProfileAsync_ForReadmeWorkflow_ShouldUseContextKeeperDirectory()
-    {
-        // Act
-        var profile = await _configService.GetProfileAsync("readme-workflow");
-        
-        // Assert
-        Assert.NotNull(profile);
-        Assert.Equal("readme-workflow", profile.Name);
-        Assert.Equal(".contextkeeper/readme-workflow", profile.Paths.History);
-        Assert.Equal(".contextkeeper/readme-workflow/snapshots", profile.Paths.Snapshots);
-        Assert.Equal(".contextkeeper/readme-workflow/compacted", profile.Paths.Compacted);
-    }
-    
-    [Fact]
-    public async Task LoadConfigAsync_ShouldIncludeBothDefaultProfiles()
-    {
-        // Act
-        var config = await _configService.LoadConfigAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Assert
         Assert.NotNull(config);
-        Assert.True(config.Profiles.ContainsKey("claude-workflow"));
-        Assert.True(config.Profiles.ContainsKey("readme-workflow"));
-        Assert.Equal(2, config.Profiles.Count);
+        Assert.Equal("2.0", config.Version);
+        Assert.StartsWith(".contextkeeper", config.Paths.History);
+        Assert.Equal(".contextkeeper", config.Paths.History);
+        Assert.Equal(".contextkeeper/snapshots", config.Paths.Snapshots);
+        Assert.Equal(".contextkeeper/archived", config.Paths.Archived);
+    }
+    
+    [Fact]
+    public async Task GetConfig_ShouldHaveDefaultSettings()
+    {
+        // Act
+        var config = await _configService.GetConfigAsync();
+        
+        // Assert
+        Assert.NotNull(config);
+        Assert.Equal(20, config.Compaction.Threshold);
+        Assert.Equal(90, config.Compaction.MaxAgeInDays);
+        Assert.True(config.Compaction.AutoCompact);
+        Assert.True(config.Snapshot.AutoCapture);
+        Assert.Equal(30, config.Snapshot.AutoCaptureIntervalMinutes);
+    }
+    
+    [Fact]
+    public async Task GetConfig_ShouldIncludeContextTrackingSettings()
+    {
+        // Act
+        var config = await _configService.GetConfigAsync();
+        
+        // Assert
+        Assert.NotNull(config);
+        Assert.True(config.ContextTracking.TrackOpenFiles);
+        Assert.True(config.ContextTracking.TrackGitState);
+        Assert.True(config.ContextTracking.TrackRecentCommands);
+        Assert.Contains("*.md", config.ContextTracking.DocumentationFiles);
     }
     
     [Theory]
-    [InlineData("claude-workflow", "CLAUDE_", 10)]
-    [InlineData("readme-workflow", "README_", 20)]
-    public async Task Profiles_ShouldHaveCorrectSettings(string profileName, string expectedPrefix, int expectedThreshold)
+    [InlineData("yyyy-MM-dd", "SNAPSHOT_{date}_{type}_{milestone}.md")]
+    public async Task Config_ShouldHaveCorrectSnapshotSettings(string expectedDateFormat, string expectedPattern)
     {
         // This demonstrates parameterized testing with xUnit Theory
         
         // Act
-        var profile = await _configService.GetProfileAsync(profileName);
+        var config = await _configService.GetConfigAsync();
         
         // Assert
-        Assert.NotNull(profile);
-        Assert.Equal(expectedPrefix, profile.Snapshot.Prefix);
-        Assert.Equal(expectedThreshold, profile.Compaction.Threshold);
+        Assert.NotNull(config);
+        Assert.Equal(expectedDateFormat, config.Snapshot.DateFormat);
+        Assert.Equal(expectedPattern, config.Snapshot.FilenamePattern);
     }
     
     [Fact]
-    public void TestDataStructure_ShouldExist()
+    public async Task TestDataStructure_ShouldExist()
     {
         // This test verifies our test data setup is correct
+        var config = await _configService.GetConfigAsync();
+        
+        // Initialize the project structure
+        var service = GetService<ContextKeeper.Core.Interfaces.IContextKeeperService>();
+        await service.InitializeProject();
         
         // Assert - Check that our test data directories exist
         Assert.True(Directory.Exists(".contextkeeper"));
-        Assert.True(Directory.Exists(".contextkeeper/claude-workflow/snapshots"));
-        Assert.True(Directory.Exists(".contextkeeper/claude-workflow/compacted"));
-        Assert.True(Directory.Exists(".contextkeeper/readme-workflow/snapshots"));
+        Assert.True(Directory.Exists(".contextkeeper/snapshots"));
+        Assert.True(Directory.Exists(".contextkeeper/archived"));
         
-        // Check that we have test snapshots
-        var claudeSnapshots = Directory.GetFiles(
-            ".contextkeeper/claude-workflow/snapshots", 
-            "*.md");
-        Assert.True(claudeSnapshots.Length >= 4, $"Expected at least 4 snapshots, but found {claudeSnapshots.Length}");
+        // Create a test snapshot to verify structure works
+        await service.CreateSnapshot("test-structure");
         
-        var compactedFiles = Directory.GetFiles(
-            ".contextkeeper/claude-workflow/compacted", 
+        // Check that we have at least one snapshot
+        var snapshots = Directory.GetFiles(
+            ".contextkeeper/snapshots", 
             "*.md");
-        Assert.Single(compactedFiles);
+        Assert.True(snapshots.Length >= 1, $"Expected at least 1 snapshot, but found {snapshots.Length}");
     }
     
     public override void Dispose()

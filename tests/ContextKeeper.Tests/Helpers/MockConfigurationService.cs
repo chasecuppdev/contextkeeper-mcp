@@ -11,152 +11,72 @@ namespace ContextKeeper.Tests.Helpers;
 public static class MockConfigurationService
 {
     /// <summary>
-    /// Creates a mock IConfigurationService that returns built-in profiles without file I/O.
+    /// Creates a mock IConfigurationService that returns default configuration without file I/O.
     /// </summary>
     public static Mock<IConfigurationService> Create()
     {
         var mock = new Mock<IConfigurationService>();
         
-        // Setup GetActiveProfileAsync to return claude-workflow by default
-        mock.Setup(x => x.GetActiveProfileAsync())
-            .ReturnsAsync(GetClaudeProfile());
+        // Setup GetConfigAsync to return default config
+        mock.Setup(x => x.GetConfigAsync())
+            .ReturnsAsync(GetDefaultConfig());
         
-        // Setup GetProfileAsync to return appropriate profiles
-        mock.Setup(x => x.GetProfileAsync("claude-workflow"))
-            .ReturnsAsync(GetClaudeProfile());
-        mock.Setup(x => x.GetProfileAsync("readme-workflow"))
-            .ReturnsAsync(GetReadmeProfile());
-        mock.Setup(x => x.GetProfileAsync(It.IsNotIn("claude-workflow", "readme-workflow")))
-            .ReturnsAsync((WorkflowProfile?)null);
+        // Setup SaveConfigAsync
+        mock.Setup(x => x.SaveConfigAsync(It.IsAny<ContextKeeperConfig>()))
+            .Returns(Task.CompletedTask);
         
-        // Setup DetectProfileAsync to return claude-workflow if CLAUDE.md exists
-        mock.Setup(x => x.DetectProfileAsync())
-            .ReturnsAsync(() =>
-            {
-                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "CLAUDE.md")))
-                    return GetClaudeProfile();
-                if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "README.md")))
-                    return GetReadmeProfile();
-                return null;
-            });
-        
-        // Setup LoadConfigAsync to return both profiles
-        mock.Setup(x => x.LoadConfigAsync())
-            .ReturnsAsync(new ContextKeeperConfig
-            {
-                Version = "1.0",
-                DefaultProfile = "claude-workflow",
-                Profiles = new Dictionary<string, WorkflowProfile>
-                {
-                    ["claude-workflow"] = GetClaudeProfile(),
-                    ["readme-workflow"] = GetReadmeProfile()
-                }
-            });
+        // Setup InitializeProjectAsync
+        mock.Setup(x => x.InitializeProjectAsync())
+            .Returns(Task.CompletedTask);
         
         return mock;
     }
     
     /// <summary>
-    /// Gets the default claude-workflow profile.
+    /// Gets the default configuration.
     /// </summary>
-    public static WorkflowProfile GetClaudeProfile()
+    public static ContextKeeperConfig GetDefaultConfig()
     {
-        return new WorkflowProfile
+        return new ContextKeeperConfig
         {
-            Name = "claude-workflow",
-            Description = "LSM-tree inspired development history for CLAUDE.md projects",
-            Detection = new DetectionConfig
-            {
-                Files = new List<string> { "CLAUDE.md" },
-                Paths = new List<string> { ".contextkeeper" }
-            },
+            Version = "2.0",
             Paths = new PathConfig
             {
-                History = ".contextkeeper/claude-workflow",
-                Snapshots = ".contextkeeper/claude-workflow/snapshots",
-                Compacted = ".contextkeeper/claude-workflow/compacted"
+                History = ".contextkeeper",
+                Snapshots = ".contextkeeper/snapshots",
+                Archived = ".contextkeeper/archived"
             },
             Snapshot = new SnapshotConfig
             {
-                Prefix = "CLAUDE_",
                 DateFormat = "yyyy-MM-dd",
-                FilenamePattern = "{prefix}{date}_{milestone}.md",
-                Validation = @"^[a-z0-9-]+$",
-                MaxLength = 50
+                FilenamePattern = "SNAPSHOT_{date}_{type}_{milestone}.md",
+                AutoCapture = true,
+                AutoCaptureIntervalMinutes = 30
             },
             Compaction = new CompactionConfig
             {
-                Threshold = 10,
-                Strategy = "lsm-quarterly",
-                ArchivePath = "Archived_{quarter}"
+                Threshold = 20,
+                MaxAgeInDays = 90,
+                AutoCompact = true
             },
-            Header = new HeaderConfig
+            ContextTracking = new ContextTrackingConfig
             {
-                Template = @"# {document} Historical Snapshot
-**Date**: {date}
-**Milestone**: {milestone}
-**Previous State**: {previous}
-**Compaction Status**: {status}
-
-## Changes in This Version
-- [To be filled by developer]
-
-## Context for Future Reference
-- [To be filled by developer]
-
----
-{content}"
+                TrackOpenFiles = true,
+                TrackGitState = true,
+                TrackRecentCommands = true,
+                DocumentationFiles = new List<string> { "*.md", "*.txt", "*.adoc" },
+                IgnorePatterns = new List<string> { "node_modules", "bin", "obj", ".git" }
             }
         };
     }
     
     /// <summary>
-    /// Gets the default readme-workflow profile.
+    /// Gets a configuration suitable for testing with lower thresholds.
     /// </summary>
-    public static WorkflowProfile GetReadmeProfile()
+    public static ContextKeeperConfig GetTestConfig()
     {
-        return new WorkflowProfile
-        {
-            Name = "readme-workflow",
-            Description = "Standard documentation workflow for README.md based projects",
-            Detection = new DetectionConfig
-            {
-                Files = new List<string> { "README.md" },
-                Paths = new List<string> { }
-            },
-            Paths = new PathConfig
-            {
-                History = ".contextkeeper/readme-workflow",
-                Snapshots = ".contextkeeper/readme-workflow/snapshots",
-                Compacted = ".contextkeeper/readme-workflow/compacted"
-            },
-            Snapshot = new SnapshotConfig
-            {
-                Prefix = "README_",
-                DateFormat = "yyyy-MM-dd",
-                FilenamePattern = "{prefix}{date}_{milestone}.md",
-                Validation = @"^[a-z0-9-]+$",
-                MaxLength = 50
-            },
-            Compaction = new CompactionConfig
-            {
-                Threshold = 20,
-                Strategy = "lsm-yearly",
-                ArchivePath = "Archived_{year}"
-            },
-            Header = new HeaderConfig
-            {
-                Template = @"# {document} Documentation Snapshot
-**Date**: {date}
-**Milestone**: {milestone}
-**Previous State**: {previous}
-
-## Summary of Changes
-- [To be filled by developer]
-
----
-{content}"
-            }
-        };
+        var config = GetDefaultConfig();
+        config.Compaction.Threshold = 5; // Lower threshold for testing
+        return config;
     }
 }

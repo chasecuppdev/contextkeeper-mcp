@@ -38,7 +38,7 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var config = await _configService.GetActiveProfileAsync();
+            var config = await _configService.GetConfigAsync();
             var result = await _snapshotManager.CreateSnapshotAsync(milestoneDescription, config);
             
             return new JsonObject
@@ -46,7 +46,7 @@ public class ContextKeeperService : IContextKeeperService
                 ["success"] = result.Success,
                 ["snapshotPath"] = result.SnapshotPath,
                 ["message"] = result.Message,
-                ["profile"] = config.Name
+                ["version"] = config.Version
             };
         }
         catch (Exception ex)
@@ -64,7 +64,7 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var config = await _configService.GetActiveProfileAsync();
+            var config = await _configService.GetConfigAsync();
             var result = await _compactionEngine.CheckCompactionNeededAsync(config);
             
             return new JsonObject
@@ -74,7 +74,7 @@ public class ContextKeeperService : IContextKeeperService
                 ["oldestSnapshot"] = result.OldestSnapshot ?? "",
                 ["newestSnapshot"] = result.NewestSnapshot ?? "",
                 ["recommendedAction"] = result.RecommendedAction,
-                ["profile"] = config.Name
+                ["version"] = config.Version
             };
         }
         catch (Exception ex)
@@ -91,7 +91,7 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var config = await _configService.GetActiveProfileAsync();
+            var config = await _configService.GetConfigAsync();
             var results = await _searchEngine.SearchAsync(searchTerm, maxResults, config);
             
             var matches = new JsonArray();
@@ -113,7 +113,7 @@ public class ContextKeeperService : IContextKeeperService
                 ["searchTerm"] = searchTerm,
                 ["totalMatches"] = results.TotalMatches,
                 ["matches"] = matches,
-                ["profile"] = config.Name
+                ["version"] = config.Version
             };
         }
         catch (Exception ex)
@@ -130,7 +130,7 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var config = await _configService.GetActiveProfileAsync();
+            var config = await _configService.GetConfigAsync();
             var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, config);
             
             var steps = new JsonArray();
@@ -152,7 +152,7 @@ public class ContextKeeperService : IContextKeeperService
                 ["componentName"] = componentName,
                 ["evolutionSteps"] = steps,
                 ["summary"] = evolution.Summary,
-                ["profile"] = config.Name
+                ["version"] = config.Version
             };
         }
         catch (Exception ex)
@@ -169,7 +169,7 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var config = await _configService.GetActiveProfileAsync();
+            var config = await _configService.GetConfigAsync();
             var comparison = await _snapshotManager.CompareSnapshotsAsync(snapshot1, snapshot2, config);
             
             if (!comparison.Success)
@@ -193,8 +193,8 @@ public class ContextKeeperService : IContextKeeperService
                 ["addedSections"] = addedSections,
                 ["removedSections"] = removedSections,
                 ["modifiedSections"] = modifiedSections,
-                ["summary"] = comparison.Summary,
-                ["profile"] = config.Name
+                ["summary"] = comparison.Message,
+                ["version"] = config.Version
             };
         }
         catch (Exception ex)
@@ -213,52 +213,29 @@ public class ContextKeeperService : IContextKeeperService
     {
         try
         {
-            var profile = profileName != null 
-                ? await _configService.GetProfileAsync(profileName)
-                : await _configService.DetectProfileAsync();
+            var config = await _configService.GetConfigAsync();
                 
-            if (profile == null)
-            {
-                return new JsonObject
-                {
-                    ["success"] = false,
-                    ["message"] = "No suitable profile found. Please specify a profile name."
-                };
-            }
+            // Configuration is always available with defaults
             
             // Create necessary directories
-            var paths = profile.Paths;
+            var paths = config.Paths;
             Directory.CreateDirectory(paths.History);
             Directory.CreateDirectory(paths.Snapshots);
-            if (!string.IsNullOrEmpty(paths.Compacted))
-            {
-                Directory.CreateDirectory(paths.Compacted);
-            }
+            Directory.CreateDirectory(paths.Archived);
             
-            // Create initial config file if needed
-            var configPath = Path.Combine(Directory.GetCurrentDirectory(), "contextkeeper.config.json");
-            if (!File.Exists(configPath))
-            {
-                var config = new ContextKeeperConfig
-                {
-                    Version = "1.0",
-                    DefaultProfile = profile.Name,
-                    Profiles = new Dictionary<string, WorkflowProfile> { [profile.Name] = profile }
-                };
-                
-                var json = JsonSerializer.Serialize(config, ContextKeeperJsonContext.Default.ContextKeeperConfig);
-                await File.WriteAllTextAsync(configPath, json);
-            }
+            // Save configuration if needed
+            await _configService.InitializeProjectAsync();
             
             return new JsonObject
             {
                 ["success"] = true,
-                ["profile"] = profile.Name,
-                ["message"] = $"Initialized ContextKeeper with '{profile.Name}' profile",
+                ["version"] = config.Version,
+                ["message"] = "Initialized ContextKeeper successfully",
                 ["directories"] = new JsonObject
                 {
                     ["history"] = paths.History,
-                    ["snapshots"] = paths.Snapshots
+                    ["snapshots"] = paths.Snapshots,
+                    ["archived"] = paths.Archived
                 }
             };
         }

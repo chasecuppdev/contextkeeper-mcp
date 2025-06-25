@@ -5,6 +5,7 @@ using ContextKeeper.Core;
 using ContextKeeper.Core.Interfaces;
 using ContextKeeper.Config;
 using ContextKeeper.CodeAnalysis;
+using ContextKeeper.Utils;
 
 namespace ContextKeeper.Tests;
 
@@ -62,7 +63,6 @@ public abstract class TestBase : IDisposable
                 });
                 
                 // Register configuration service (mocked or real)
-                services.AddSingleton<ProfileDetector>(); // Always needed
                 if (useMockConfiguration)
                 {
                     var mockConfig = Helpers.MockConfigurationService.Create();
@@ -93,6 +93,10 @@ public abstract class TestBase : IDisposable
                 services.AddSingleton<WorkspaceManager>();
                 services.AddSingleton<SymbolSearchService>();
                 services.AddSingleton<CodeSearchTools>();
+                
+                // Add context capture services
+                services.AddSingleton<GitHelper>();
+                services.AddSingleton<IContextCaptureService, ContextCaptureService>();
             })
             .Build();
             

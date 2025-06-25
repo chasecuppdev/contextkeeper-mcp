@@ -2,52 +2,40 @@ namespace ContextKeeper.Config.Models;
 
 public class ContextKeeperConfig
 {
-    public string Version { get; set; } = "1.0";
-    public string DefaultProfile { get; set; } = "claude-workflow";
-    public Dictionary<string, WorkflowProfile> Profiles { get; set; } = new();
-}
-
-public class WorkflowProfile
-{
-    public string Name { get; set; } = "";
-    public string Description { get; set; } = "";
-    public DetectionConfig Detection { get; set; } = new();
+    public string Version { get; set; } = "2.0";
     public PathConfig Paths { get; set; } = new();
     public SnapshotConfig Snapshot { get; set; } = new();
     public CompactionConfig Compaction { get; set; } = new();
-    public HeaderConfig? Header { get; set; }
-}
-
-public class DetectionConfig
-{
-    public List<string> Files { get; set; } = new();
-    public List<string> Paths { get; set; } = new();
+    public ContextTrackingConfig ContextTracking { get; set; } = new();
 }
 
 public class PathConfig
 {
-    public string History { get; set; } = "";
-    public string Snapshots { get; set; } = "";
-    public string? Compacted { get; set; }
+    public string History { get; set; } = ".contextkeeper";
+    public string Snapshots { get; set; } = ".contextkeeper/snapshots";
+    public string Archived { get; set; } = ".contextkeeper/archived";
 }
 
 public class SnapshotConfig
 {
-    public string Prefix { get; set; } = "";
     public string DateFormat { get; set; } = "yyyy-MM-dd";
-    public string FilenamePattern { get; set; } = "";
-    public string Validation { get; set; } = @"^[a-z0-9-]+$";
-    public int MaxLength { get; set; } = 50;
+    public string FilenamePattern { get; set; } = "SNAPSHOT_{date}_{type}_{milestone}.md";
+    public bool AutoCapture { get; set; } = true;
+    public int AutoCaptureIntervalMinutes { get; set; } = 30;
 }
 
 public class CompactionConfig
 {
-    public int Threshold { get; set; } = 10;
-    public string Strategy { get; set; } = "lsm-quarterly";
-    public string ArchivePath { get; set; } = "Archived_{quarter}";
+    public int Threshold { get; set; } = 20;
+    public int MaxAgeInDays { get; set; } = 90;
+    public bool AutoCompact { get; set; } = true;
 }
 
-public class HeaderConfig
+public class ContextTrackingConfig
 {
-    public string Template { get; set; } = "";
+    public bool TrackOpenFiles { get; set; } = true;
+    public bool TrackGitState { get; set; } = true;
+    public bool TrackRecentCommands { get; set; } = true;
+    public List<string> DocumentationFiles { get; set; } = new() { "*.md", "*.txt", "*.adoc" };
+    public List<string> IgnorePatterns { get; set; } = new() { "node_modules", "bin", "obj", ".git" };
 }

@@ -22,21 +22,85 @@ public class SearchTests : TestBase, IDisposable
         // Create isolated environment and ensure we're in TestData
         var testDir = CreateIsolatedEnvironment(TestScenario.Mixed);
         SetCurrentDirectory(testDir);
+        
+        // Create test snapshots with expected content
+        CreateTestSnapshots().GetAwaiter().GetResult();
+    }
+    
+    private async Task CreateTestSnapshots()
+    {
+        var config = await _configService.GetConfigAsync();
+        var snapshotPath = Path.Combine(Environment.CurrentDirectory, config.Paths.Snapshots);
+        Directory.CreateDirectory(snapshotPath);
+        
+        // Create snapshots with expected content
+        var snapshot1 = Path.Combine(snapshotPath, "SNAPSHOT_2024-01-15_manual_initial-setup.md");
+        await File.WriteAllTextAsync(snapshot1, @"# Development Context Snapshot
+**Timestamp**: 2024-01-15 10:00:00 UTC
+**Type**: manual
+**Milestone**: initial-setup
+
+## Documentation
+### CLAUDE.md
+Initial project setup with PostgreSQL database.
+Clean Architecture implementation.
+");
+        
+        var snapshot2 = Path.Combine(snapshotPath, "SNAPSHOT_2024-01-20_manual_add-authentication.md");
+        await File.WriteAllTextAsync(snapshot2, @"# Development Context Snapshot
+**Timestamp**: 2024-01-20 10:00:00 UTC
+**Type**: manual
+**Milestone**: add-authentication
+
+## Documentation
+### CLAUDE.md
+Implemented JWT Bearer authentication.
+Added Repository pattern.
+Clean Architecture with JWT.
+");
+        
+        var snapshot3 = Path.Combine(snapshotPath, "SNAPSHOT_2024-02-01_manual_api-endpoints.md");
+        await File.WriteAllTextAsync(snapshot3, @"# Development Context Snapshot
+**Timestamp**: 2024-02-01 10:00:00 UTC
+**Type**: manual
+**Milestone**: api-endpoints
+
+## Documentation
+### CLAUDE.md
+Added API endpoints with Repository pattern.
+PostgreSQL integration complete.
+Clean Architecture principles applied.
+");
+        
+        // Create archived directory and compacted file
+        var archivedPath = Path.Combine(Environment.CurrentDirectory, config.Paths.Archived);
+        Directory.CreateDirectory(archivedPath);
+        
+        var compactedFile = Path.Combine(archivedPath, "ARCHIVED_2024-01-01_2024-03-31_COMPACTED.md");
+        await File.WriteAllTextAsync(compactedFile, @"# Archived Snapshots: Q1 2024
+**Period**: 2024-01-01 to 2024-03-31
+**Total Snapshots**: 3
+
+## Q1 2024 Summary
+Completed authentication implementation.
+Integrated PostgreSQL database.
+Applied Clean Architecture patterns.
+");
     }
     
     [Fact]
     public async Task Search_ForExistingTerm_ShouldReturnMatches()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         var searchTerm = "PostgreSQL";
         
         // Act
-        var results = await _searchEngine.SearchAsync(searchTerm, maxResults: 10, profile);
+        var results = await _searchEngine.SearchAsync(searchTerm, maxResults: 10, config);
         
         // Assert
         Assert.NotNull(results);
-        Assert.True(results.TotalMatches > 0);
+        Assert.True(results.TotalMatches > 0, $"No matches found for '{searchTerm}'");
         Assert.NotEmpty(results.Matches);
         
         // Verify match details
@@ -53,10 +117,10 @@ public class SearchTests : TestBase, IDisposable
     public async Task Search_ShouldFindExpectedOccurrences(string searchTerm, int minExpectedMatches)
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var results = await _searchEngine.SearchAsync(searchTerm, maxResults: 20, profile);
+        var results = await _searchEngine.SearchAsync(searchTerm, maxResults: 20, config);
         
         // Assert
         Assert.True(results.TotalMatches >= minExpectedMatches, 
@@ -67,11 +131,11 @@ public class SearchTests : TestBase, IDisposable
     public async Task Search_WithCaseInsensitive_ShouldWork()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var upperResults = await _searchEngine.SearchAsync("POSTGRESQL", maxResults: 10, profile);
-        var lowerResults = await _searchEngine.SearchAsync("postgresql", maxResults: 10, profile);
+        var upperResults = await _searchEngine.SearchAsync("POSTGRESQL", maxResults: 10, config);
+        var lowerResults = await _searchEngine.SearchAsync("postgresql", maxResults: 10, config);
         
         // Assert
         Assert.Equal(upperResults.TotalMatches, lowerResults.TotalMatches);
@@ -81,11 +145,11 @@ public class SearchTests : TestBase, IDisposable
     public async Task Search_WithMaxResults_ShouldLimitResults()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         var maxResults = 2;
         
         // Act
-        var results = await _searchEngine.SearchAsync("the", maxResults, profile);
+        var results = await _searchEngine.SearchAsync("the", maxResults, config);
         
         // Assert
         Assert.True(results.Matches.Count <= maxResults);
@@ -96,10 +160,10 @@ public class SearchTests : TestBase, IDisposable
     public async Task Search_ForNonExistentTerm_ShouldReturnEmpty()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var results = await _searchEngine.SearchAsync("XYZ123NonExistent", maxResults: 10, profile);
+        var results = await _searchEngine.SearchAsync("XYZ123NonExistent", maxResults: 10, config);
         
         // Assert
         Assert.NotNull(results);
@@ -113,10 +177,10 @@ public class SearchTests : TestBase, IDisposable
         // This tests that search results include surrounding context
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var results = await _searchEngine.SearchAsync("JWT Bearer", maxResults: 5, profile);
+        var results = await _searchEngine.SearchAsync("JWT Bearer", maxResults: 5, config);
         
         // Assert
         Assert.NotEmpty(results.Matches);
@@ -134,14 +198,14 @@ public class SearchTests : TestBase, IDisposable
         // Verifies that search includes compacted archives
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var results = await _searchEngine.SearchAsync("Q1 2024", maxResults: 10, profile);
+        var results = await _searchEngine.SearchAsync("Q1 2024", maxResults: 10, config);
         
         // Assert
         Assert.True(results.TotalMatches > 0);
-        Assert.Contains(results.Matches, m => m.FileName.Contains("COMPACTED"));
+        Assert.Contains(results.Matches, m => m.FileName.Contains("ARCHIVED"));
     }
     
     [Fact]
@@ -150,21 +214,21 @@ public class SearchTests : TestBase, IDisposable
         // Tests the file pattern search functionality
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var authFiles = await _searchEngine.SearchFilesAsync("*auth*", profile);
-        var apiFiles = await _searchEngine.SearchFilesAsync("*api*", profile);
+        var authFiles = await _searchEngine.SearchFilesAsync("*auth*", config);
+        var apiFiles = await _searchEngine.SearchFilesAsync("*api*", config);
         
         // Assert
         Assert.NotEmpty(authFiles);
-        Assert.Contains(authFiles, f => f.Contains("add-authentication"));
+        Assert.Contains(authFiles, f => f.Contains("authentication"));
         
         Assert.NotEmpty(apiFiles);
         Assert.Contains(apiFiles, f => f.Contains("api-endpoints"));
     }
     
-    public new void Dispose()
+    public override void Dispose()
     {
         base.Dispose();
     }

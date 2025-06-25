@@ -68,4 +68,42 @@ public static class FileSystemHelpers
         return Uri.UnescapeDataString(baseUri.MakeRelativeUri(fullUri).ToString())
             .Replace('/', Path.DirectorySeparatorChar);
     }
+    
+    public static List<string> GetMatchingFiles(string directory, string pattern)
+    {
+        var files = new List<string>();
+        
+        if (!Directory.Exists(directory))
+            return files;
+        
+        try
+        {
+            // Handle common glob patterns
+            if (pattern.StartsWith("*."))
+            {
+                // Simple extension pattern
+                files.AddRange(Directory.GetFiles(directory, pattern, SearchOption.AllDirectories));
+            }
+            else if (pattern.Contains("*") || pattern.Contains("?"))
+            {
+                // General glob pattern
+                files.AddRange(Directory.GetFiles(directory, pattern, SearchOption.AllDirectories));
+            }
+            else
+            {
+                // Exact filename
+                var filePath = Path.Combine(directory, pattern);
+                if (File.Exists(filePath))
+                {
+                    files.Add(filePath);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Ignore access errors
+        }
+        
+        return files;
+    }
 }

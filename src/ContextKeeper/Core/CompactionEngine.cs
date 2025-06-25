@@ -13,93 +13,152 @@ public class CompactionEngine : ICompactionEngine
         _logger = logger;
     }
     
-    public Task<CompactionStatus> CheckCompactionNeededAsync(WorkflowProfile profile)
+    public async Task<CompactionStatus> CheckCompactionNeededAsync(ContextKeeperConfig config)
     {
-        var snapshotsDir = profile.Paths.Snapshots;
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
         if (!Directory.Exists(snapshotsDir))
         {
-            return Task.FromResult(new CompactionStatus
+            return new CompactionStatus
             {
                 SnapshotCount = 0,
                 CompactionNeeded = false,
                 RecommendedAction = "No snapshots found"
-            });
+            };
         }
         
-        var pattern = profile.Snapshot.Prefix + "*.md";
+        var pattern = "SNAPSHOT_*.md";
         var snapshots = Directory.GetFiles(snapshotsDir, pattern)
-            .Where(f => !f.Contains("COMPACTED"))
             .OrderBy(f => f)
             .ToList();
         
-        var threshold = profile.Compaction.Threshold;
-        var compactionNeeded = snapshots.Count >= threshold;
+        var threshold = config.Compaction.Threshold;
+        var maxAgeInDays = config.Compaction.MaxAgeInDays;
         
-        return Task.FromResult(new CompactionStatus
+        // Check for old snapshots
+        var oldSnapshots = new List<string>();
+        var cutoffDate = DateTime.Now.AddDays(-maxAgeInDays);
+        
+        foreach (var snapshot in snapshots)
+        {
+            var fileInfo = new FileInfo(snapshot);
+            if (fileInfo.CreationTimeUtc < cutoffDate)
+            {
+                oldSnapshots.Add(snapshot);
+            }
+        }
+        
+        var compactionNeeded = snapshots.Count >= threshold || oldSnapshots.Count > 0;
+        var reason = "";
+        
+        if (snapshots.Count >= threshold)
+        {
+            reason = $"Snapshot count ({snapshots.Count}) exceeds threshold ({threshold})";
+        }
+        else if (oldSnapshots.Count > 0)
+        {
+            reason = $"{oldSnapshots.Count} snapshots older than {maxAgeInDays} days";
+        }
+        
+        return new CompactionStatus
         {
             SnapshotCount = snapshots.Count,
             CompactionNeeded = compactionNeeded,
             OldestSnapshot = snapshots.FirstOrDefault(),
             NewestSnapshot = snapshots.LastOrDefault(),
             RecommendedAction = compactionNeeded 
-                ? $"Compaction recommended - {snapshots.Count}/{threshold} snapshots exist"
+                ? $"Auto-compaction will trigger: {reason}"
                 : $"No compaction needed - {snapshots.Count}/{threshold} snapshots",
-            Threshold = threshold
-        });
+            Threshold = threshold,
+            AutoCompactEnabled = config.Compaction.AutoCompact
+        };
     }
     
-    public async Task<CompactionResult> PerformCompactionAsync(WorkflowProfile profile)
+    public async Task<CompactionResult> PerformCompactionAsync(ContextKeeperConfig config)
     {
-        var status = await CheckCompactionNeededAsync(profile);
+        var status = await CheckCompactionNeededAsync(config);
+        
+        // Only compact if auto-compact is enabled or if manually triggered
         if (!status.CompactionNeeded)
         {
             return new CompactionResult
             {
                 Success = false,
-                Message = "Compaction not needed yet"
+                Message = "Compaction not needed"
+            };
+        }
+        
+        if (!config.Compaction.AutoCompact)
+        {
+            return new CompactionResult
+            {
+                Success = false,
+                Message = "Auto-compaction is disabled. Enable it in configuration to proceed."
             };
         }
         
         try
         {
-            var snapshotsDir = profile.Paths.Snapshots;
-            var compactedDir = profile.Paths.Compacted ?? Path.Combine(snapshotsDir, "Compacted");
-            Directory.CreateDirectory(compactedDir);
+            var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
+            var archivedDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Archived);
+            Directory.CreateDirectory(archivedDir);
             
-            var pattern = profile.Snapshot.Prefix + "*.md";
-            var snapshots = Directory.GetFiles(snapshotsDir, pattern)
-                .Where(f => !f.Contains("COMPACTED"))
+            // Get snapshots to compact (older than max age)
+            var cutoffDate = DateTime.Now.AddDays(-config.Compaction.MaxAgeInDays);
+            var snapshotsToCompact = Directory.GetFiles(snapshotsDir, "SNAPSHOT_*.md")
+                .Where(f => new FileInfo(f).CreationTimeUtc < cutoffDate)
                 .OrderBy(f => f)
                 .ToList();
             
-            // Determine compaction strategy
-            var compactedContent = await BuildCompactedContentAsync(snapshots, profile);
+            if (snapshotsToCompact.Count == 0)
+            {
+                // If no old snapshots, compact oldest half if over threshold
+                var allSnapshots = Directory.GetFiles(snapshotsDir, "SNAPSHOT_*.md")
+                    .OrderBy(f => f)
+                    .ToList();
+                    
+                if (allSnapshots.Count >= config.Compaction.Threshold)
+                {
+                    snapshotsToCompact = allSnapshots.Take(allSnapshots.Count / 2).ToList();
+                }
+            }
             
-            // Create compacted filename based on strategy
-            var compactedFilename = GenerateCompactedFilename(snapshots, profile);
-            var compactedPath = Path.Combine(compactedDir, compactedFilename);
+            if (snapshotsToCompact.Count == 0)
+            {
+                return new CompactionResult
+                {
+                    Success = false,
+                    Message = "No snapshots ready for compaction"
+                };
+            }
+            
+            // Build compacted content
+            var compactedContent = await BuildCompactedContentAsync(snapshotsToCompact, config);
+            
+            // Create compacted filename
+            var dateRange = GetDateRange(snapshotsToCompact);
+            var compactedFilename = $"ARCHIVED_{dateRange}_COMPACTED.md";
+            var compactedPath = Path.Combine(archivedDir, compactedFilename);
             
             // Write compacted file
             await File.WriteAllTextAsync(compactedPath, compactedContent);
             
-            // Archive original snapshots
-            var archiveDir = Path.Combine(compactedDir, profile.Compaction.ArchivePath.Replace("{quarter}", GetQuarter()));
-            Directory.CreateDirectory(archiveDir);
-            
-            foreach (var snapshot in snapshots)
+            // Delete original snapshots
+            foreach (var snapshot in snapshotsToCompact)
             {
-                var destPath = Path.Combine(archiveDir, Path.GetFileName(snapshot));
-                File.Move(snapshot, destPath);
+                File.Delete(snapshot);
             }
             
-            _logger.LogInformation($"Compacted {snapshots.Count} snapshots into {compactedFilename}");
+            _logger.LogInformation(
+                "Auto-compacted {Count} snapshots into {Filename}", 
+                snapshotsToCompact.Count, 
+                compactedFilename);
             
             return new CompactionResult
             {
                 Success = true,
-                Message = $"Successfully compacted {snapshots.Count} snapshots",
-                CompactedFile = compactedFilename,
-                ArchivedCount = snapshots.Count
+                Message = $"Compacted {snapshotsToCompact.Count} snapshots",
+                CompactedFile = compactedPath,
+                ArchivedSnapshots = snapshotsToCompact
             };
         }
         catch (Exception ex)
@@ -113,104 +172,59 @@ public class CompactionEngine : ICompactionEngine
         }
     }
     
-    private async Task<string> BuildCompactedContentAsync(List<string> snapshots, WorkflowProfile profile)
+    private async Task<string> BuildCompactedContentAsync(List<string> snapshots, ContextKeeperConfig config)
     {
-        var content = new List<string>();
-        content.Add($"# Compacted History - {profile.Name} Profile");
-        content.Add($"**Created**: {DateTime.Now:yyyy-MM-dd}");
-        content.Add($"**Snapshots**: {snapshots.Count}");
-        content.Add($"**Period**: {Path.GetFileName(snapshots.First())} to {Path.GetFileName(snapshots.Last())}");
-        content.Add("");
-        content.Add("## Summary of Changes");
-        content.Add("");
+        var content = new System.Text.StringBuilder();
         
-        // Extract key changes from each snapshot
+        // Header
+        content.AppendLine("# Archived Snapshots");
+        content.AppendLine($"**Archived Date**: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        content.AppendLine($"**Snapshot Count**: {snapshots.Count}");
+        content.AppendLine($"**Date Range**: {GetDateRange(snapshots)}");
+        content.AppendLine();
+        content.AppendLine("## Summary");
+        content.AppendLine("This file contains archived snapshots that have been compacted for long-term storage.");
+        content.AppendLine();
+        
+        // Add each snapshot with separator
         foreach (var snapshot in snapshots)
         {
+            content.AppendLine("---");
+            content.AppendLine();
+            content.AppendLine($"## Original File: {Path.GetFileName(snapshot)}");
+            content.AppendLine();
+            
             var snapshotContent = await File.ReadAllTextAsync(snapshot);
+            content.AppendLine(snapshotContent);
+            content.AppendLine();
+        }
+        
+        return content.ToString();
+    }
+    
+    private string GetDateRange(List<string> snapshots)
+    {
+        if (snapshots.Count == 0) return "unknown";
+        
+        // Extract dates from filenames (SNAPSHOT_yyyy-MM-dd_*)
+        var dates = new List<DateTime>();
+        foreach (var snapshot in snapshots)
+        {
             var filename = Path.GetFileName(snapshot);
-            
-            // Extract milestone and changes section
-            var lines = snapshotContent.Split('\n');
-            string? milestone = null;
-            var inChangesSection = false;
-            var changes = new List<string>();
-            
-            foreach (var line in lines)
+            var parts = filename.Split('_');
+            if (parts.Length >= 2 && DateTime.TryParse(parts[1], out var date))
             {
-                if (line.StartsWith("**Milestone**:"))
-                {
-                    milestone = line.Replace("**Milestone**:", "").Trim();
-                }
-                else if (line.StartsWith("## Changes in This Version"))
-                {
-                    inChangesSection = true;
-                }
-                else if (inChangesSection && line.StartsWith("## "))
-                {
-                    break;
-                }
-                else if (inChangesSection && line.StartsWith("- "))
-                {
-                    changes.Add(line);
-                }
-            }
-            
-            if (milestone != null)
-            {
-                content.Add($"### {milestone}");
-                content.Add($"*File: {filename}*");
-                content.AddRange(changes.Any() ? changes : new[] { "- No changes documented" });
-                content.Add("");
+                dates.Add(date);
             }
         }
         
-        content.Add("---");
-        content.Add("");
-        content.Add("## Latest State");
-        content.Add("");
+        if (dates.Count == 0) return "unknown";
         
-        // Include the latest snapshot's full content
-        var latestSnapshot = await File.ReadAllTextAsync(snapshots.Last());
-        content.Add(latestSnapshot);
+        var minDate = dates.Min();
+        var maxDate = dates.Max();
         
-        return string.Join("\n", content);
+        return minDate.Date == maxDate.Date 
+            ? minDate.ToString("yyyy-MM-dd")
+            : $"{minDate:yyyy-MM-dd}_to_{maxDate:yyyy-MM-dd}";
     }
-    
-    private string GenerateCompactedFilename(List<string> snapshots, WorkflowProfile profile)
-    {
-        var firstFile = Path.GetFileNameWithoutExtension(snapshots.First());
-        var lastFile = Path.GetFileNameWithoutExtension(snapshots.Last());
-        
-        // Extract dates from filenames
-        var firstDate = firstFile.Split('_')[1];
-        var lastDate = lastFile.Split('_')[1];
-        
-        return $"{profile.Snapshot.Prefix}COMPACTED_{firstDate}_to_{lastDate}.md";
-    }
-    
-    private string GetQuarter()
-    {
-        var month = DateTime.Now.Month;
-        var quarter = (month - 1) / 3 + 1;
-        return $"{DateTime.Now.Year}-Q{quarter}";
-    }
-}
-
-public class CompactionStatus
-{
-    public int SnapshotCount { get; set; }
-    public bool CompactionNeeded { get; set; }
-    public string? OldestSnapshot { get; set; }
-    public string? NewestSnapshot { get; set; }
-    public string RecommendedAction { get; set; } = "";
-    public int Threshold { get; set; }
-}
-
-public class CompactionResult
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = "";
-    public string? CompactedFile { get; set; }
-    public int ArchivedCount { get; set; }
 }

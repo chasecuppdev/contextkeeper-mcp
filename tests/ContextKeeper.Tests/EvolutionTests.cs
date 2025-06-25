@@ -23,17 +23,114 @@ public class EvolutionTests : TestBase, IDisposable
         // Create isolated test environment with CLAUDE project
         _tempDirectory = CreateIsolatedEnvironment(TestScenario.ClaudeOnly);
         SetCurrentDirectory(_tempDirectory);
+        
+        // Create test snapshots with expected evolution content
+        CreateEvolutionTestData().GetAwaiter().GetResult();
+    }
+    
+    private async Task CreateEvolutionTestData()
+    {
+        var config = await _configService.GetConfigAsync();
+        var snapshotPath = Path.Combine(Environment.CurrentDirectory, config.Paths.Snapshots);
+        Directory.CreateDirectory(snapshotPath);
+        
+        // Create snapshots showing evolution of components
+        var snapshot1 = Path.Combine(snapshotPath, "SNAPSHOT_2024-01-15_manual_initial-setup.md");
+        await File.WriteAllTextAsync(snapshot1, @"# Development Context Snapshot
+**Timestamp**: 2024-01-15 10:00:00 UTC
+**Type**: manual
+**Milestone**: initial-setup
+
+## Documentation
+### CLAUDE.md
+## Architecture
+- Clean Architecture: Planned
+- Authentication: Planned
+- JWT: Planned
+- Repository Pattern: Planned
+- Task Management: Planned
+- Project Structure: Planned
+");
+        
+        var snapshot2 = Path.Combine(snapshotPath, "SNAPSHOT_2024-01-20_manual_add-authentication.md");
+        await File.WriteAllTextAsync(snapshot2, @"# Development Context Snapshot
+**Timestamp**: 2024-01-20 10:00:00 UTC
+**Type**: manual
+**Milestone**: add-authentication
+
+## Documentation
+### CLAUDE.md
+## Architecture
+- Clean Architecture: In Progress
+- Authentication: Completed
+- JWT: Completed
+- Repository Pattern: In Progress
+- Task Management: Planned
+- Project Structure: In Progress
+");
+        
+        var snapshot3 = Path.Combine(snapshotPath, "SNAPSHOT_2024-01-25_manual_database-integration.md");
+        await File.WriteAllTextAsync(snapshot3, @"# Development Context Snapshot
+**Timestamp**: 2024-01-25 10:00:00 UTC
+**Type**: manual
+**Milestone**: database-integration
+
+## Documentation
+### CLAUDE.md
+## Architecture
+- Clean Architecture: Completed
+- Authentication: Completed
+- JWT: Completed
+- Repository Pattern: Completed
+- Task Management: In Progress
+- Project Structure: Completed
+");
+        
+        var snapshot4 = Path.Combine(snapshotPath, "SNAPSHOT_2024-02-01_manual_api-endpoints.md");
+        await File.WriteAllTextAsync(snapshot4, @"# Development Context Snapshot
+**Timestamp**: 2024-02-01 10:00:00 UTC
+**Type**: manual
+**Milestone**: api-endpoints
+
+## Documentation
+### CLAUDE.md
+## Architecture
+- Clean Architecture: Completed
+- Authentication: Completed
+- JWT: Completed
+- Repository Pattern: Completed
+- Task Management: Completed
+- Project Structure: Completed
+- CQRS: Implemented
+");
+        
+        // Create archived/compacted file
+        var archivedPath = Path.Combine(Environment.CurrentDirectory, config.Paths.Archived);
+        Directory.CreateDirectory(archivedPath);
+        
+        var compactedFile = Path.Combine(archivedPath, "ARCHIVED_2024-01-01_2024-03-31_COMPACTED.md");
+        await File.WriteAllTextAsync(compactedFile, @"# Archived Snapshots: Q1 2024
+**Period**: 2024-01-01 to 2024-03-31
+**Type**: Compacted
+**Total Snapshots**: 4
+
+## Q1 2024 Summary
+Completed Clean Architecture implementation.
+Implemented Authentication and JWT.
+Completed Repository Pattern.
+Finished Task and Project management features.
+");
     }
     
     [Fact]
     public async Task GetEvolution_ForTrackedComponent_ShouldReturnHistory()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         var componentName = "Authentication";
         
         // Act
-        var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, profile);
+        var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, config);
         
         // Assert
         Assert.NotNull(evolution);
@@ -51,10 +148,10 @@ public class EvolutionTests : TestBase, IDisposable
     public async Task GetEvolution_ForVariousComponents_ShouldTrackProgress(string componentName)
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, profile);
+        var evolution = await _evolutionTracker.GetEvolutionAsync(componentName, config);
         
         // Assert
         Assert.NotNull(evolution);
@@ -71,10 +168,10 @@ public class EvolutionTests : TestBase, IDisposable
         // Tests that evolution tracking can identify status progression
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var evolution = await _evolutionTracker.GetEvolutionAsync("Authentication", profile);
+        var evolution = await _evolutionTracker.GetEvolutionAsync("Authentication", config);
         
         // Assert
         var steps = evolution.Steps.OrderBy(s => s.Date).ToList();
@@ -96,10 +193,10 @@ public class EvolutionTests : TestBase, IDisposable
     public async Task GetEvolution_ForNonExistentComponent_ShouldReturnEmpty()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var evolution = await _evolutionTracker.GetEvolutionAsync("NonExistentComponent", profile);
+        var evolution = await _evolutionTracker.GetEvolutionAsync("NonExistentComponent", config);
         
         // Assert
         Assert.NotNull(evolution);
@@ -113,10 +210,10 @@ public class EvolutionTests : TestBase, IDisposable
         // Tests the timeline functionality
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var timeline = await _evolutionTracker.GetTimelineAsync(profile);
+        var timeline = await _evolutionTracker.GetTimelineAsync(config);
         
         // Assert
         Assert.NotNull(timeline);
@@ -124,7 +221,7 @@ public class EvolutionTests : TestBase, IDisposable
         
         // Should include both regular and compacted snapshots
         Assert.Contains(timeline.Events, e => e.Type == "Snapshot");
-        Assert.Contains(timeline.Events, e => e.Type == "Compacted");
+        Assert.Contains(timeline.Events, e => e.Type == "Archived" || e.Type == "Compacted");
         
         // Verify chronological order
         var dates = timeline.Events.Select(e => e.Date).ToList();
@@ -135,10 +232,10 @@ public class EvolutionTests : TestBase, IDisposable
     public async Task GetTimeline_ShouldExtractMilestones()
     {
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var timeline = await _evolutionTracker.GetTimelineAsync(profile);
+        var timeline = await _evolutionTracker.GetTimelineAsync(config);
         
         // Assert
         var milestones = timeline.Events.Select(e => e.Milestone).Where(m => !string.IsNullOrEmpty(m)).ToList();
@@ -155,11 +252,11 @@ public class EvolutionTests : TestBase, IDisposable
         // This test verifies that evolution tracking captures architectural decisions
         
         // Arrange
-        var profile = await _configService.GetActiveProfileAsync();
+        var config = await _configService.GetConfigAsync();
         
         // Act
-        var cleanArchEvolution = await _evolutionTracker.GetEvolutionAsync("Clean Architecture", profile);
-        var cqrsEvolution = await _evolutionTracker.GetEvolutionAsync("CQRS", profile);
+        var cleanArchEvolution = await _evolutionTracker.GetEvolutionAsync("Clean Architecture", config);
+        var cqrsEvolution = await _evolutionTracker.GetEvolutionAsync("CQRS", config);
         
         // Assert
         // Clean Architecture should be mentioned from the beginning

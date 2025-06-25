@@ -13,7 +13,7 @@ public class SearchEngine : ISearchEngine
         _logger = logger;
     }
     
-    public async Task<SearchResult> SearchAsync(string searchTerm, int maxResults, WorkflowProfile profile)
+    public async Task<SearchResult> SearchAsync(string searchTerm, int maxResults, ContextKeeperConfig config)
     {
         var results = new SearchResult
         {
@@ -22,8 +22,8 @@ public class SearchEngine : ISearchEngine
         };
         
         // Search in both snapshots and compacted directories
-        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
-        var compactedDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Compacted ?? "");
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
+        var compactedDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Archived);
         
         var searchDirs = new List<string>();
         if (Directory.Exists(snapshotsDir))
@@ -73,10 +73,10 @@ public class SearchEngine : ISearchEngine
         return results;
     }
     
-    public Task<List<string>> SearchFilesAsync(string pattern, WorkflowProfile profile)
+    public Task<List<string>> SearchFilesAsync(string pattern, ContextKeeperConfig config)
     {
         var matches = new List<string>();
-        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), profile.Paths.Snapshots);
+        var snapshotsDir = Path.Combine(Directory.GetCurrentDirectory(), config.Paths.Snapshots);
         
         if (!Directory.Exists(snapshotsDir))
         {

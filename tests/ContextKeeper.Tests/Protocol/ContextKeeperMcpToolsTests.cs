@@ -49,7 +49,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.CreateSnapshot(milestone);
+        var result = await _mcpTools.Snapshot(milestone);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -69,7 +69,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ThrowsAsync(new ArgumentException("Invalid milestone format"));
         
         // Act
-        var result = await _mcpTools.CreateSnapshot(milestone);
+        var result = await _mcpTools.Snapshot(milestone);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -96,13 +96,19 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.CheckCompaction();
+        var result = await _mcpTools.GetStatus();
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
-        jsonResult!["compactionNeeded"]!.GetValue<bool>().Should().BeTrue();
-        jsonResult["currentCount"]!.GetValue<int>().Should().Be(15);
-        jsonResult["threshold"]!.GetValue<int>().Should().Be(10);
+        jsonResult.Should().NotBeNull();
+        jsonResult!["contextkeeper_version"].Should().NotBeNull();
+        jsonResult["snapshot_status"].Should().NotBeNull();
+        
+        // Check the nested snapshot_status from the mocked service response
+        var snapshotStatus = jsonResult["snapshot_status"] as JsonObject;
+        snapshotStatus!["compactionNeeded"]!.GetValue<bool>().Should().BeTrue();
+        snapshotStatus["currentCount"]!.GetValue<int>().Should().Be(15);
+        snapshotStatus["threshold"]!.GetValue<int>().Should().Be(10);
     }
     
     [Fact]
@@ -119,11 +125,13 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.CheckCompaction();
+        var result = await _mcpTools.GetStatus();
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
-        jsonResult!["compactionNeeded"]!.GetValue<bool>().Should().BeFalse();
+        jsonResult.Should().NotBeNull();
+        var snapshotStatus = jsonResult!["snapshot_status"] as JsonObject;
+        snapshotStatus!["compactionNeeded"]!.GetValue<bool>().Should().BeFalse();
     }
     
     #endregion
@@ -154,7 +162,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.SearchHistory(searchTerm, maxResults);
+        var result = await _mcpTools.SearchEvolution(searchTerm, maxResults);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -182,7 +190,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.SearchHistory(searchTerm);
+        var result = await _mcpTools.SearchEvolution(searchTerm);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -219,7 +227,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.GetEvolution(componentName);
+        var result = await _mcpTools.TrackComponent(componentName);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -248,7 +256,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ReturnsAsync(expectedResult!);
         
         // Act
-        var result = await _mcpTools.GetEvolution(componentName);
+        var result = await _mcpTools.TrackComponent(componentName);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -306,7 +314,7 @@ public class ContextKeeperMcpToolsTests : TestBase
             .ThrowsAsync(new ArgumentNullException(nameof(milestone)));
         
         // Act
-        var result = await _mcpTools.CreateSnapshot(milestone!);
+        var result = await _mcpTools.Snapshot(milestone!);
         
         // Assert
         var jsonResult = JsonSerializer.Deserialize<JsonObject>(result);
@@ -330,7 +338,7 @@ public class ContextKeeperMcpToolsTests : TestBase
         
         // Act & Assert
         // The tool should handle cancellation gracefully
-        var result = await _mcpTools.CreateSnapshot("test", cts.Token);
+        var result = await _mcpTools.Snapshot("test", cts.Token);
         result.Should().NotBeNull();
     }
     

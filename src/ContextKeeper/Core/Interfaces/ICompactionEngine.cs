@@ -10,14 +10,14 @@ public interface ICompactionEngine
     /// <summary>
     /// Checks whether compaction is needed based on the current snapshot count and threshold.
     /// </summary>
-    /// <param name="profile">The workflow profile containing compaction configuration.</param>
+    /// <param name="config">The context keeper configuration containing compaction settings.</param>
     /// <returns>The compaction status indicating whether compaction is needed.</returns>
-    Task<CompactionStatus> CheckCompactionNeededAsync(WorkflowProfile profile);
+    Task<CompactionStatus> CheckCompactionNeededAsync(ContextKeeperConfig config);
     
     /// <summary>
     /// Performs compaction by consolidating multiple snapshots into a single compacted file.
     /// </summary>
-    /// <param name="profile">The workflow profile containing compaction configuration.</param>
+    /// <param name="config">The context keeper configuration containing compaction settings.</param>
     /// <returns>The result of the compaction operation.</returns>
-    Task<CompactionResult> PerformCompactionAsync(WorkflowProfile profile);
+    Task<CompactionResult> PerformCompactionAsync(ContextKeeperConfig config);
 }
