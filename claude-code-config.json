@@ -3,7 +3,7 @@
     "contextkeeper": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "/absolute/path/to/contextkeeper-mcp/src/ContextKeeper/ContextKeeper.csproj"],
+      "args": ["run", "--project", "/home/chasecupp43/repos/contextkeeper-mcp/src/ContextKeeper/ContextKeeper.csproj"],
       "env": {
         "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
         "MCP_DEBUG": "true"

@@ -36,7 +36,7 @@ By participating in this project, you agree to abide by our Code of Conduct:
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/YOUR_USERNAME/contextkeeper-mcp.git
+git clone https://github.com/chasecuppdev/contextkeeper-mcp.git
 cd contextkeeper-mcp
 
 # Create a feature branch

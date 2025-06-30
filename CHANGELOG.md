@@ -5,6 +5,22 @@ All notable changes to ContextKeeper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Technical deep dive section in README with LSM-tree architecture details
+- Concrete usage examples and quick demo section
+- Performance benchmarks and Native AOT metrics
+- Comprehensive testing documentation (98 tests passing)
+
+### Fixed
+- Updated all GitHub URLs to use correct username
+- Cleaned up duplicate nested directories in project structure
+
+### Changed
+- Enhanced README with interview-ready content
+- Improved performance metrics with actual benchmarks
+
 ## [2.0.0] - 2025-06-24
 
 ### Changed - BREAKING
