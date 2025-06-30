@@ -66,3 +66,16 @@ appsettings.local.json
 # ContextKeeper history (for testing)
 FeatureData/
 .history/
+
+# Development/test files
+test-mcp.sh
+MCP_TESTING_GUIDE.md
+claude-code-config.json
+.mcp.json
+contextkeeper
+
+# Local context (for development)
+.contextkeeper/
+
+# Published binaries
+publish/
