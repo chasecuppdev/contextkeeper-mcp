@@ -95,6 +95,13 @@ public class SearchEngine : ISearchEngine
     
     private string GetContextLines(string[] lines, int index, int contextSize)
     {
+        // Check for demo mode context size override
+        var demoContextSize = Environment.GetEnvironmentVariable("CONTEXTKEEPER_DEMO_CONTEXT_SIZE");
+        if (!string.IsNullOrEmpty(demoContextSize) && int.TryParse(demoContextSize, out var demoSize))
+        {
+            contextSize = Math.Min(contextSize, demoSize / 20); // Divide by 20 to get line count from char count
+        }
+        
         var start = Math.Max(0, index - contextSize);
         var end = Math.Min(lines.Length - 1, index + contextSize);
         
@@ -102,7 +109,15 @@ public class SearchEngine : ISearchEngine
         for (int i = start; i <= end; i++)
         {
             var prefix = i == index ? ">>> " : "    ";
-            contextLines.Add($"{prefix}{lines[i]}");
+            var line = lines[i];
+            
+            // Truncate long lines in demo mode
+            if (!string.IsNullOrEmpty(demoContextSize) && line.Length > 100)
+            {
+                line = line.Substring(0, 97) + "...";
+            }
+            
+            contextLines.Add($"{prefix}{line}");
         }
         
         return string.Join("\n", contextLines);

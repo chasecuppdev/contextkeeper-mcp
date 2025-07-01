@@ -181,7 +181,7 @@ public class ContextKeeperMcpTools
                 ["auto_features"] = new JsonObject
                 {
                     ["git_hooks_available"] = true,
-                    ["auto_compaction"] = compactionStatus["autoCompactEnabled"] ?? true,
+                    ["auto_compaction"] = true,
                     ["context_tracking"] = new JsonObject
                     {
                         ["git_state"] = true,

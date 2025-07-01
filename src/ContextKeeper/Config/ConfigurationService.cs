@@ -31,6 +31,10 @@ public class ConfigurationService : IConfigurationService
             return _cachedConfig;
         }
         
+        // Check for demo mode
+        var demoMode = Environment.GetEnvironmentVariable("CONTEXTKEEPER_DEMO_MODE") == "true";
+        var historyPath = Environment.GetEnvironmentVariable("CONTEXTKEEPER_HISTORY_PATH");
+        
         // Try to load from local config file
         if (File.Exists(_configPath))
         {
@@ -40,6 +44,15 @@ public class ConfigurationService : IConfigurationService
                 _cachedConfig = JsonSerializer.Deserialize(json, ContextKeeperJsonContext.Default.ContextKeeperConfig);
                 if (_cachedConfig != null)
                 {
+                    // Override paths if in demo mode
+                    if (demoMode && !string.IsNullOrEmpty(historyPath))
+                    {
+                        _cachedConfig.Paths.History = historyPath;
+                        _cachedConfig.Paths.Snapshots = Path.Combine(historyPath, "snapshots");
+                        _cachedConfig.Paths.Archived = Path.Combine(historyPath, "archived");
+                        _logger.LogInformation("Demo mode activated: using history path {Path}", historyPath);
+                    }
+                    
                     _logger.LogDebug("Loaded configuration from {Path}", _configPath);
                     return _cachedConfig;
                 }
@@ -92,14 +105,23 @@ public class ConfigurationService : IConfigurationService
     
     private ContextKeeperConfig GetDefaultConfig()
     {
+        // Check for demo mode
+        var demoMode = Environment.GetEnvironmentVariable("CONTEXTKEEPER_DEMO_MODE") == "true";
+        var historyPath = Environment.GetEnvironmentVariable("CONTEXTKEEPER_HISTORY_PATH") ?? ".contextkeeper";
+        
+        if (demoMode)
+        {
+            _logger.LogInformation("Creating default config in demo mode with path: {Path}", historyPath);
+        }
+        
         return new ContextKeeperConfig
         {
             Version = "2.0",
             Paths = new PathConfig
             {
-                History = ".contextkeeper",
-                Snapshots = ".contextkeeper/snapshots",
-                Archived = ".contextkeeper/archived"
+                History = demoMode ? historyPath : ".contextkeeper",
+                Snapshots = demoMode ? Path.Combine(historyPath, "snapshots") : ".contextkeeper/snapshots",
+                Archived = demoMode ? Path.Combine(historyPath, "archived") : ".contextkeeper/archived"
             },
             Snapshot = new SnapshotConfig
             {
