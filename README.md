@@ -127,19 +127,25 @@ Automatic archiving triggers when:
 
 ### With Claude Desktop
 
-Add to your Claude Desktop configuration:
+Add to your Claude Desktop configuration (`~/.claude.json`):
 
 ```json
 {
   "mcpServers": {
     "contextkeeper": {
+      "type": "stdio",
       "command": "dotnet",
       "args": ["run", "--project", "/path/to/contextkeeper/src/ContextKeeper"],
-      "cwd": "/your/project/directory"
+      "env": {}
     }
   }
 }
 ```
+
+**Important**: Make sure to:
+1. Replace `/path/to/contextkeeper` with the actual path to your ContextKeeper installation
+2. Include `"type": "stdio"` in the configuration
+3. Keep command and args as separate fields (don't combine them)
 
 ### With Other MCP Clients
 

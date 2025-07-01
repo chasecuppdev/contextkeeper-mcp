@@ -249,7 +249,7 @@ class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole(options =>
         {
-            options.LogToStandardErrorThreshold = LogLevel.Trace;
+            options.LogToStandardErrorThreshold = LogLevel.Warning;
         });
         
         // Register services
@@ -264,7 +264,7 @@ class Program
         
         var host = builder.Build();
         
-        Console.Error.WriteLine("ContextKeeper MCP Server started (stdio mode with C# code search)");
+        Console.WriteLine("ContextKeeper MCP Server started (stdio mode with C# code search)");
         
         await host.RunAsync();
         return 0;
